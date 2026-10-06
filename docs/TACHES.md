@@ -6,12 +6,12 @@ Chaque fiche peut être copiée-collée telle quelle à l'équipier concerné.
 | Membre | Rôle | Fichiers à lui | Difficulté | Dépend de |
 |---|---|---|---|---|
 | **M1 (Lead)** | Features, modèle MLlib, scoring streaming, intégration, Docker | `src/ml/*`, `docker-compose.yml` | Élevée | tous |
-| **M2** | Générateur de données réaliste | `src/generator/generate_dataset.py` | Facile | — |
-| **M3** | Producer Kafka | `src/ingestion/producer.py` | Facile | M2 (CSV) |
-| **M4** | Consumer Kafka → MongoDB | `src/ingestion/mongo_consumer.py` | Facile | M3 |
-| **M5** | Dashboard : page Indicateurs | `src/dashboard/pages/1_Indicateurs.py` | Facile | `data_access.py` |
-| **M6** | Dashboard : page Transactions suspectes | `src/dashboard/pages/2_Transactions_suspectes.py` | Facile | `data_access.py` |
-| **M7** | Documentation, tests, rapport, présentation | `docs/*`, `tests/*`, `notebooks/*` | Facile | tous |
+| **M2** (@Mi-AndRia) | Générateur de données réaliste | `src/generator/generate_dataset.py` | Facile | — |
+| **M3** (@hasss17) | Producer Kafka | `src/ingestion/producer.py` | Facile | M2 (CSV) |
+| **M4** (@Maryam-024) | Consumer Kafka → MongoDB | `src/ingestion/mongo_consumer.py` | Facile | M3 |
+| **M5** (en attente, lead en attendant) | Dashboard : page Indicateurs | `src/dashboard/pages/1_Indicateurs.py` | Facile | `data_access.py` |
+| **M6** (en attente, lead en attendant) | Dashboard : page Transactions suspectes | `src/dashboard/pages/2_Transactions_suspectes.py` | Facile | `data_access.py` |
+| **M7** (@christin455lima-hash) | Documentation, tests, rapport, présentation | `docs/*`, `tests/*`, `notebooks/*` | Facile | tous |
 
 ## Règles communes
 1. `git pull` avant de commencer, branche `feature/<prenom>-<module>`, Pull Request vers `main` (voir `CONTRIBUTING.md`).
