@@ -7,10 +7,10 @@
 | M3 | @hasss17 | Producer Kafka | M3 | à inviter |
 | M4 | @Maryam-024 | Consumer → MongoDB | M4 | à inviter |
 | M7 | @christin455lima-hash | Documentation, tests, rapport | M7 | à inviter |
-| M5 | _en attente de compte GitHub_ | Dashboard : indicateurs | M5 | tenu par le lead en attendant |
-| M6 | _en attente de compte GitHub_ | Dashboard : transactions suspectes | M6 | tenu par le lead en attendant |
+| M5 | @hanspamissa-debug | Dashboard : indicateurs (logique et données ; le style visuel reste au lead) | M5 | à inviter |
+| M6 | _Klazanga DAO : identifiant GitHub à confirmer_ | Dashboard : transactions suspectes | M6 | tenu par le lead en attendant |
 
-Les deux pages du dashboard (M5, M6) sont la vitrine du projet : le lead les construit avec l'agent `dashboard-designer` tant que personne n'est attribué. Dès que les deux derniers comptes arrivent, on leur confie des tâches périphériques du dashboard (jeux de données de test, textes, captures, tests) plutôt que le cœur du design.
+Le dashboard est la vitrine du projet : le lead définit le style (`src/dashboard/ui/theme.py`, voir `docs/DESIGN_DASHBOARD.md`) avec l'agent `dashboard-designer`. M5 apporte la logique et les données de sa page ; M6 reste tenu par le lead jusqu'à réception d'un identifiant GitHub valide.
 
 Les affectations M2, M3, M4, M7 suivent l'ordre de réception des comptes et peuvent être échangées sans impact : les fiches sont indépendantes.
 
