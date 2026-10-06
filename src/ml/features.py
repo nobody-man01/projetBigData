@@ -60,6 +60,10 @@ def add_features(df: DataFrame) -> DataFrame:
         )
         .withColumn(
             "error_balance_receiver",
-            F.col("receiver_balance_before") + F.col("amount") - F.col("receiver_balance_after"),
+            # Au dépôt (CASH_IN) l'agent « donne » du e-money : son solde baisse au lieu de monter.
+            F.when(
+                F.col("tx_type") == "CASH_IN",
+                F.col("receiver_balance_before") - F.col("amount") - F.col("receiver_balance_after"),
+            ).otherwise(F.col("receiver_balance_before") + F.col("amount") - F.col("receiver_balance_after")),
         )
     )

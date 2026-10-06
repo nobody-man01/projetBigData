@@ -43,5 +43,5 @@ pytest -q
 - Une démo de bout en bout doit tenir en 5 minutes devant un jury.
 
 ## État d'avancement (mettre à jour à chaque jalon, 5 lignes max)
-- Fait : squelette, générateur v0, modules ML v1 (non testés avec Spark réel), data_access.
-- À faire : valider train_model en réel, producer, consumer, pages dashboard, générateur enrichi, rapport.
+- Fait : squelette, générateur v1 réaliste + adaptateur PaySim (branche feature/donnees-realistes, voir docs/DONNEES.md), modules ML v1 (non testés avec Spark réel), data_access.
+- À faire : valider train_model en réel, ajouter des features d'historique par compte (gain mesuré : AUC-PR 0,43 -> 0,77), producer, consumer, pages dashboard, rapport.

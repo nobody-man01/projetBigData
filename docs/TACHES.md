@@ -22,18 +22,16 @@ Chaque fiche peut être copiée-collée telle quelle à l'équipier concerné.
 
 ---
 
-## Fiche M2 – Générateur de données réaliste
-**Objectif** : produire `data/transactions.csv` (≥ 200 000 lignes, ~2 % de fraudes) qui ressemble à du vrai Mobile Money camerounais.
-**Fichier** : `src/generator/generate_dataset.py` (une version v0 fonctionne déjà, à améliorer).
+## Fiche M2 – Générateur de données
+**Objectif** : relire, comprendre et enrichir le générateur réaliste (v1, déjà écrit par le lead sur la branche `feature/donnees-realistes`) et produire `data/transactions.csv` (≥ 200 000 lignes, ~2 % de fraudes).
+**Fichiers** : `src/generator/generate_dataset.py` (v1) et `src/generator/paysim_adapter.py`. Lire d'abord `docs/DONNEES.md`.
 **À faire** :
-1. Lancer la v0 : `python -m src.generator.generate_dataset --n 200000` et regarder le CSV.
-2. Ajouter ces scénarios de fraude (colonne `is_fraud = 1`), un par fonction `_scenario_xxx` :
-   - **Prise de contrôle de compte** : nouveau `device_id` jamais vu pour ce `sender_id`, puis TRANSFER qui vide le solde.
-   - **Rafale (velocity)** : un même `sender_id` fait 5 à 10 petites transactions en moins de 2 minutes vers des receveurs différents.
-   - **Montant atypique** : montant 10 à 50 fois supérieur à la moyenne de l'expéditeur.
-3. Rendre les transactions normales plus réalistes : plus d'activité en journée (7h–21h), montants arrondis (500, 1000, 5000 XAF) fréquents.
-4. Garder **exactement** les colonnes de `schema.FIELDS`.
-**Terminé quand** : `pytest tests/test_schema_and_generator.py` passe et le taux de fraude est entre 1 % et 4 %.
+1. Lancer `python -m src.generator.generate_dataset --n 200000` et ouvrir le CSV (pandas ou LibreOffice) : repérer des comportements encore irréalistes et les noter.
+2. Ajouter **un 4e scénario de fraude** au choix (ex. : « SIM swap » nouvel appareil + changement de ville quelques minutes avant un retrait ; « mule en chaîne » A→B→C→agent en moins de 10 min), avec son nom dans `fraud_scenario`.
+3. Ajouter des cas normaux qui ressemblent à de la fraude (ex. : jour de paie, tontine, commerçant qui reçoit beaucoup).
+4. Télécharger PaySim sur Kaggle, lancer l'adaptateur et vérifier que le CSV obtenu passe `validate_transaction`.
+5. Garder **exactement** les colonnes de `schema.FIELDS`.
+**Terminé quand** : `pytest tests/test_schema_and_generator.py` passe, le taux de fraude est de 1 à 4 %, et une page de notes décrit ce qui a été ajouté et pourquoi (pour le rapport).
 
 ## Fiche M3 – Producer Kafka
 **Objectif** : envoyer les transactions du CSV dans Kafka, comme un flux en direct.
