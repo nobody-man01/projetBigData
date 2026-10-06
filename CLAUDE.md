@@ -39,6 +39,7 @@ pytest -q
 ## Niveau de qualité attendu
 - Tout lancement à froid fonctionne en suivant le README.
 - Le dashboard doit être exceptionnel visuellement : voir `docs/DESIGN_DASHBOARD.md`.
+- Livrables finaux (code, rapport Word/PDF, PowerPoint de soutenance) : cahier des charges dans `docs/LIVRABLES.md`. Aucun chiffre ni capture inventés ; rien ne doit paraître « généré » ; vérifier chaque page/diapositive rendue en image.
 - Une démo de bout en bout doit tenir en 5 minutes devant un jury.
 
 ## État d'avancement (mettre à jour à chaque jalon, 5 lignes max)

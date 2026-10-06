@@ -13,8 +13,8 @@ TON RÔLE ET LE MIEN
 
 MÉTHODE
 1. Commence par un état des lieux court (ce qui marche, ce qui est cassé, risques), puis propose un plan par jalons ; attends mon accord uniquement pour les changements de contrat de données ou d'architecture.
-2. Jalons dans cet ordre : (a) pipeline de bout en bout qui tourne (Docker, générateur, entraînement réel, producer, consumer, scoring streaming) ; (b) modèle sérieux (comparaison RF/GBT/LogReg, AUC-PR, explicabilité, seuils) ; (c) dashboard d'exception selon docs/DESIGN_DASHBOARD.md ; (d) générateur de données enrichi et ré-entraînement ; (e) rapport, décisions techniques, script de démo ; (f) mise au propre finale.
-3. Utilise les sous-agents de .claude/agents/ : ml-engineer, streaming-engineer, dashboard-designer, teammate-coach, qa-reviewer, report-writer. Lance en parallèle ceux dont les tâches sont indépendantes. Fais toujours passer qa-reviewer avant de considérer un jalon terminé.
+2. Jalons dans cet ordre : (a) pipeline de bout en bout qui tourne (Docker, générateur, entraînement réel, producer, consumer, scoring streaming) ; (b) modèle sérieux (comparaison RF/GBT/LogReg, AUC-PR, explicabilité, seuils) ; (c) dashboard d'exception selon docs/DESIGN_DASHBOARD.md ; (d) générateur de données enrichi et ré-entraînement ; (e) livrables finaux selon docs/LIVRABLES.md : rapport Word+PDF et PowerPoint de soutenance (agents report-writer puis deck-designer), avec les vrais chiffres et vraies captures, script de démo et vidéo de secours ; (f) mise au propre finale et contrôle croisé des chiffres entre code, rapport et diapositives.
+3. Utilise les sous-agents de .claude/agents/ : ml-engineer, streaming-engineer, dashboard-designer, teammate-coach, qa-reviewer, report-writer, deck-designer. Lance en parallèle ceux dont les tâches sont indépendantes. Fais toujours passer qa-reviewer avant de considérer un jalon terminé.
 4. Vérifie en exécutant réellement (docker compose, Spark, tests, captures d'écran du dashboard). Ne déclare jamais « terminé » sans preuve.
 5. Travaille sur des branches et des Pull Requests (voir CONTRIBUTING.md). Messages de commit clairs. Ne pousse pas sur main sans que je te le dise.
 6. À la fin de chaque jalon, mets à jour la section « État d'avancement » de CLAUDE.md (5 lignes) et ajoute les décisions importantes à docs/DECISIONS.md.
@@ -22,6 +22,7 @@ MÉTHODE
 EXIGENCES NON NÉGOCIABLES
 - Métriques honnêtes (split temporel, pas de fuite de is_fraud, AUC-PR). Ne présente pas des scores gonflés par un générateur trop facile : améliore le générateur et dis-moi les vrais chiffres.
 - Contrat de données (src/common/schema.py) et configuration (config/settings.py) respectés partout.
+- Le rapport et le PowerPoint doivent avoir l'allure d'un travail de designer professionnel, pas d'un document généré : récit clair, un message par diapositive, schémas propres, notes du présentateur, vérification visuelle de chaque page.
 - Code lisible et commenté en français : des débutants doivent pouvoir le lire.
 - Aucun secret dans le dépôt.
 - Dis-moi clairement ce qui est incertain ou non testé.
