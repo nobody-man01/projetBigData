@@ -8,3 +8,6 @@ models/
 checkpoints/
 .ipynb_checkpoints/
 .pytest_cache/
+
+# Réglages personnels Claude Code
+.claude/settings.local.json
