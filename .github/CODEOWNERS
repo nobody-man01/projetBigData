@@ -1,0 +1,14 @@
+# Relecture automatique : chaque Pull Request touchant un fichier demande l'avis de son propriétaire,
+# et le lead relit tout. Les noms sont des comptes GitHub (docs/EQUIPE.md).
+*                                           @nobody-man01
+/src/generator/                             @Mi-AndRia @nobody-man01
+/src/ingestion/producer.py                  @hasss17 @nobody-man01
+/src/ingestion/mongo_consumer.py            @Maryam-024 @nobody-man01
+/docs/RAPPORT_PLAN.md                       @christin455lima-hash @nobody-man01
+/notebooks/                                 @christin455lima-hash @nobody-man01
+/tests/                                     @christin455lima-hash @nobody-man01
+/src/ml/                                    @nobody-man01
+/src/dashboard/                             @nobody-man01
+/config/                                    @nobody-man01
+/src/common/                                @nobody-man01
+/.claude/                                   @nobody-man01
