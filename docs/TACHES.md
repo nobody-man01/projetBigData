@@ -9,7 +9,7 @@ Chaque fiche peut être copiée-collée telle quelle à l'équipier concerné.
 | **M2** (@Mi-AndRia) | Générateur de données réaliste | `src/generator/generate_dataset.py` | Facile | — |
 | **M3** (@hasss17) | Producer Kafka | `src/ingestion/producer.py` | Facile | M2 (CSV) |
 | **M4** (@Maryam-024) | Consumer Kafka → MongoDB | `src/ingestion/mongo_consumer.py` | Facile | M3 |
-| **M5** (en attente, lead en attendant) | Dashboard : page Indicateurs | `src/dashboard/pages/1_Indicateurs.py` | Facile | `data_access.py` |
+| **M5** (@hanspamissa-debug) | Dashboard : page Indicateurs | `src/dashboard/pages/1_Indicateurs.py` | Facile | `data_access.py` |
 | **M6** (en attente, lead en attendant) | Dashboard : page Transactions suspectes | `src/dashboard/pages/2_Transactions_suspectes.py` | Facile | `data_access.py` |
 | **M7** (@christin455lima-hash) | Documentation, tests, rapport, présentation | `docs/*`, `tests/*`, `notebooks/*` | Facile | tous |
 
