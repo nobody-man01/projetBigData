@@ -1,9 +1,10 @@
+# Dépendances de toute l'équipe (générateur, producer, consumer, dashboard, tests).
+# Versions minimales seulement : fonctionne avec l'environnement Python de chacun (3.10+).
 pandas>=2.0
 numpy>=1.26
 python-dotenv>=1.0
 kafka-python>=2.0.2
 pymongo>=4.6
-pyspark==3.5.1
 streamlit>=1.35
 plotly>=5.20
 pytest>=8.0

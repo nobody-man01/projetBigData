@@ -1,11 +1,24 @@
+# Secrets : chacun crée son .env à partir de .env.example
 .env
+
+# Environnement Python et caches
+.venv/
 __pycache__/
 *.pyc
-.venv/
-data/*.csv
-data/*.parquet
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Données locales (CSV générés, PaySim...) : jamais sur GitHub
+data/*
+!data/.gitkeep
+
+# Sorties du modèle et du streaming Spark
 models/
 checkpoints/
-.ipynb_checkpoints/
-.pytest_cache/
 
+# Archives et fichiers personnels
+*.zip
+local/
+
+# Réglages personnels d'éditeur
+.vscode/

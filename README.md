@@ -15,9 +15,18 @@ tests/                    tests automatiques
 ```
 Répartition : `docs/TACHES.md`. Workflow Git : `CONTRIBUTING.md`. Architecture : `docs/ARCHITECTURE.md`.
 
+## Démarrage rapide (nouvel équipier)
+```bash
+git clone https://github.com/nobody-man01/projetBigData.git && cd projetBigData
+python -m venv .venv && source .venv/bin/activate     # ou activez votre environnement du cours
+pip install -r requirements.txt && cp .env.example .env
+pytest -q                                              # doit afficher « passed »
+```
+Ensuite : lire sa fiche dans `docs/TACHES.md` (ou son Issue sur GitHub) et suivre `CONTRIBUTING.md`.
+
 ## Démarrage complet (ordre des commandes, un terminal chacune)
 ```bash
-pip install -r requirements.txt && cp .env.example .env
+pip install -r requirements-spark.txt && cp .env.example .env   # inclut Spark
 docker compose up -d                                   # Kafka + MongoDB + mongo-express
 python -m src.generator.generate_dataset --n 200000    # crée data/transactions.csv
 python -m src.ml.train_model                           # entraîne et sauvegarde le modèle
@@ -26,4 +35,5 @@ python -m src.ingestion.mongo_consumer                 # terminal 2 : stockage b
 python -m src.ingestion.producer --rate 20             # terminal 3 : flux de transactions
 streamlit run src/dashboard/app.py                     # terminal 4 : dashboard
 ```
-Prérequis : Python 3.10+, Java 11 ou 17 (pour Spark), Docker.
+Prérequis : Python 3.10+ et Docker. Pour la partie ML seulement : Spark 3.5 (Java 11/17) ou Spark 4.x (Java 17+).
+Vous pouvez réutiliser votre environnement Python du cours : `pip install -r requirements.txt` n'ajoute que ce qui manque, sans imposer de version de Spark.

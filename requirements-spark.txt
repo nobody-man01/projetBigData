@@ -1,0 +1,4 @@
+# Uniquement pour la partie ML (src/ml) : Spark 3.5 ou 4.x, selon votre installation.
+# Spark 3.5 : Java 11 ou 17, Python 3.10 à 3.11. Spark 4.x : Java 17 ou plus récent.
+-r requirements.txt
+pyspark>=3.5

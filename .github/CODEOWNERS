@@ -1,5 +1,7 @@
 # Relecture automatique : chaque Pull Request touchant un fichier demande l'avis de son propriétaire,
 # et le lead relit tout. Les noms sont des comptes GitHub (docs/EQUIPE.md).
+# Attention : c'est la DERNIÈRE ligne qui correspond qui s'applique. Mettre les règles précises
+# (un fichier) après les règles générales (un dossier).
 *                                           @nobody-man01
 /src/generator/                             @Mi-AndRia @nobody-man01
 /src/ingestion/producer.py                  @hasss17 @nobody-man01
@@ -8,7 +10,7 @@
 /notebooks/                                 @christin455lima-hash @nobody-man01
 /tests/                                     @christin455lima-hash @nobody-man01
 /src/ml/                                    @nobody-man01
-/src/dashboard/pages/1_Indicateurs.py          @hanspamissa-debug @nobody-man01
 /src/dashboard/                             @nobody-man01
+/src/dashboard/pages/1_Indicateurs.py       @hanspamissa-debug @nobody-man01
 /config/                                    @nobody-man01
 /src/common/                                @nobody-man01
