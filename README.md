@@ -28,7 +28,7 @@ Ensuite : lire sa fiche dans `docs/TACHES.md` (ou son Issue sur GitHub) et suivr
 ```bash
 pip install -r requirements-spark.txt && cp .env.example .env   # inclut Spark
 docker compose up -d                                   # Kafka + MongoDB + mongo-express
-python -m src.generator.generate_dataset --n 200000    # crée data/transactions.csv
+python -m src.generator.generate_dataset --n 200000    # crée data/transactions.csv (voir docs/DONNEES.md pour PaySim)
 python -m src.ml.train_model                           # entraîne et sauvegarde le modèle
 python -m src.ml.streaming_scoring                     # terminal 1 : scoring temps réel
 python -m src.ingestion.mongo_consumer                 # terminal 2 : stockage brut
