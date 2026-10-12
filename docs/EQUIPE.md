@@ -3,11 +3,11 @@
 | # | Compte GitHub | Module | Fiche | Statut |
 |---|---|---|---|---|
 | M1 | @nobody-man01 (lead) | ML, streaming, intégration, design du dashboard | docs/TACHES.md | actif |
-| M2 | @Mi-AndRia | Générateur de données | M2 | à inviter |
-| M3 | @hasss17 | Producer Kafka | M3 | à inviter |
-| M4 | @Maryam-024 | Consumer → MongoDB | M4 | à inviter |
-| M7 | @christin455lima-hash | Documentation, tests, rapport | M7 | à inviter |
-| M5 | @hanspamissa-debug | Dashboard : indicateurs (logique et données ; le style visuel reste au lead) | M5 | à inviter |
+| M2 | @Mi-AndRia | Générateur de données | M2, Issue #1 | invitation envoyée |
+| M3 | @hasss17 | Producer Kafka | M3, Issue #2 | invitation envoyée |
+| M4 | @Maryam-024 | Consumer → MongoDB | M4, Issue #3 | invitation envoyée |
+| M7 | @christin455lima-hash | Documentation, tests, rapport | M7, Issue #5 | invitation envoyée |
+| M5 | @hanspamissa-debug | Dashboard : indicateurs (logique et données ; le style visuel reste au lead) | M5, Issue #4 | invitation envoyée |
 | M6 | _Klazanga DAO : identifiant GitHub à confirmer_ | Dashboard : transactions suspectes | M6 | tenu par le lead en attendant |
 
 Le dashboard est la vitrine du projet : le lead définit le style (`src/dashboard/ui/theme.py`, voir `docs/DESIGN_DASHBOARD.md`). M5 apporte la logique et les données de sa page ; M6 reste tenu par le lead jusqu'à réception d'un identifiant GitHub valide.

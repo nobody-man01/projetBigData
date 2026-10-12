@@ -22,3 +22,7 @@ local/
 
 # Réglages personnels d'éditeur
 .vscode/
+
+# Fichiers créés par R / RStudio
+.Rhistory
+.RData

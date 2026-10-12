@@ -23,7 +23,7 @@ Chaque fiche peut être copiée-collée telle quelle à l'équipier concerné.
 ---
 
 ## Fiche M2 – Générateur de données
-**Objectif** : relire, comprendre et enrichir le générateur réaliste (v1, déjà écrit par le lead sur la branche `feature/donnees-realistes`) et produire `data/transactions.csv` (≥ 200 000 lignes, ~2 % de fraudes).
+**Objectif** : relire, comprendre et enrichir le générateur réaliste (v1, déjà écrit par le lead et présent sur `main`) et produire `data/transactions.csv` (≥ 200 000 lignes, ~2 % de fraudes).
 **Fichiers** : `src/generator/generate_dataset.py` (v1) et `src/generator/paysim_adapter.py`. Lire d'abord `docs/DONNEES.md`.
 **À faire** :
 1. Lancer `python -m src.generator.generate_dataset --n 200000` et ouvrir le CSV (pandas ou LibreOffice) : repérer des comportements encore irréalistes et les noter.
