@@ -35,6 +35,9 @@ SCORED_EXTRA = {
     "risk_level": str,             # LOW | MEDIUM | HIGH
     "scored_at": str,              # ISO 8601 UTC
 }
+# Champs facultatifs du scoring (explication et mesure) : sent_at (heure d'envoi par le producer),
+# latency_ms (envoi -> score), amount_vs_avg, device_is_new, receiver_is_new, city_is_new,
+# amount_to_balance_ratio, sender_emptied, is_night (raisons affichées par le dashboard).
 
 
 def validate_transaction(tx: dict) -> list:

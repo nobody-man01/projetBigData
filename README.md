@@ -24,12 +24,18 @@ pytest -q                                              # doit afficher « passed
 ```
 Ensuite : lire sa fiche dans `docs/TACHES.md` (ou son Issue sur GitHub) et suivre `CONTRIBUTING.md`.
 
+## Démo en une commande
+```bash
+bash scripts/demo.sh          # Docker, modèle si absent, scoring, consumer, producer puis dashboard
+```
+Dashboard : http://localhost:8501 · mongo-express : http://localhost:8081 · journaux : `logs/`.
+
 ## Démarrage complet (ordre des commandes, un terminal chacune)
 ```bash
 pip install -r requirements-spark.txt && cp .env.example .env   # inclut Spark
 docker compose up -d                                   # Kafka + MongoDB + mongo-express
 python -m src.generator.generate_dataset --n 200000    # crée data/transactions.csv (voir docs/DONNEES.md pour PaySim)
-python -m src.ml.train_model                           # entraîne et sauvegarde le modèle
+python -m src.ml.train_model --compare                 # compare 3 algorithmes, sauvegarde modèle + métriques
 python -m src.ml.streaming_scoring                     # terminal 1 : scoring temps réel
 python -m src.ingestion.mongo_consumer                 # terminal 2 : stockage brut
 python -m src.ingestion.producer --rate 20             # terminal 3 : flux de transactions
