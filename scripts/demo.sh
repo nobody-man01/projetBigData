@@ -30,10 +30,12 @@ docker compose up -d
 until docker inspect -f '{{.State.Health.Status}}' momo-kafka 2>/dev/null | grep -q healthy; do sleep 2; done
 
 step "2/4 Données et modèle"
-[ -f data/transactions.csv ] || $PY -m src.generator.generate_dataset --n 200000
-[ -f models/metrics.json ] || $PY -m src.ml.train_model --compare
-SINCE=$($PY -c "import json; print(json.load(open('models/metrics.json'))['test_period_start'])")
-echo "Rejeu des transactions à partir du $SINCE (période de test)"
+[ -f data/transactions.csv ] || $PY -m src.generator.generate_dataset --n 250000 --days 30 --test-days 7 --test-fraud-rate 0.003 --seed 42
+[ -f models/metrics.json ] || $PY -m src.ml.train_model --compare --test-data data/transactions_test.csv
+# Rejeu de la période de test (jamais vue à l'entraînement) : fichier séparé s'il existe, sinon fin du fichier principal
+if [ -f data/transactions_test.csv ]; then REPLAY=(--data data/transactions_test.csv); else
+  REPLAY=(--since "$($PY -c "import json; print(json.load(open('models/metrics.json'))['test_period_start'])")"); fi
+echo "Rejeu de la période de test : ${REPLAY[*]}"
 
 step "3/4 Scoring Spark, consumer et producer (journaux dans $LOGS/)"
 $PY -u -m src.ml.streaming_scoring > "$LOGS/scoring.log" 2>&1 & PIDS+=($!)
@@ -44,7 +46,7 @@ until grep -q "profils de comptes chargés" "$LOGS/scoring.log"; do
   sleep 2
 done
 sleep 10   # laisse la requête streaming s'abonner au topic avant le premier envoi
-$PY -u -m src.ingestion.producer --rate "$RATE" --since "$SINCE" > "$LOGS/producer.log" 2>&1 & PIDS+=($!)
+$PY -u -m src.ingestion.producer --rate "$RATE" "${REPLAY[@]}" > "$LOGS/producer.log" 2>&1 & PIDS+=($!)
 
 step "4/4 Dashboard : http://localhost:8501  (mongo-express : http://localhost:8081)"
 $PY -m streamlit run src/dashboard/app.py
