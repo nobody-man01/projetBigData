@@ -75,6 +75,12 @@ def ping() -> bool:
 def explain(tx: dict) -> list:
     """Raisons lisibles d'une alerte, à partir des features conservées par le scoring (3 au maximum)."""
     reasons = []
+    if (tx.get("pair_n_10min") or 0) >= 3:
+        reasons.append(f"{tx['pair_n_10min']:.0f} opérations vers le même destinataire en 10 min")
+    elif (tx.get("sender_n_10min") or 0) >= 4:
+        reasons.append(f"{tx['sender_n_10min']:.0f} opérations en 10 min")
+    elif (tx.get("sender_n_1h") or 0) >= 4:
+        reasons.append(f"{tx['sender_n_1h']:.0f} opérations en 1 h")
     if tx.get("device_is_new") == 1:
         reasons.append("Nouvel appareil pour ce compte")
     if tx.get("receiver_is_new") == 1:
