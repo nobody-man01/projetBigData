@@ -34,7 +34,8 @@ from pyspark.sql import functions as F
 
 from config.settings import (MODEL_PATH, PROFILES_PATH, METRICS_PATH, DATASET_PATH,
                              THRESHOLD_HIGH, THRESHOLD_MEDIUM)
-from src.ml.features import CATEGORICAL_COLS, NUMERIC_COLS, TX_SCHEMA, add_features, build_profiles
+from src.ml.features import (CATEGORICAL_COLS, NUMERIC_COLS, PROFILE_COLS, TX_SCHEMA, add_features,
+                             build_profiles)
 
 ALGOS = {
     "logreg": "Régression logistique",
@@ -43,7 +44,7 @@ ALGOS = {
 }
 
 
-def build_pipeline(algo: str = "rf") -> Pipeline:
+def build_pipeline(algo: str = "rf", numeric_cols: list = None) -> Pipeline:
     """Encodage des colonnes catégorielles + assemblage des features + classifieur pondéré."""
     indexers = [StringIndexer(inputCol=c, outputCol=f"{c}_idx", handleInvalid="keep") for c in CATEGORICAL_COLS]
     encoder = OneHotEncoder(
@@ -52,7 +53,7 @@ def build_pipeline(algo: str = "rf") -> Pipeline:
         handleInvalid="keep",
     )
     assembler = VectorAssembler(
-        inputCols=NUMERIC_COLS + [f"{c}_ohe" for c in CATEGORICAL_COLS],
+        inputCols=(numeric_cols or NUMERIC_COLS) + [f"{c}_ohe" for c in CATEGORICAL_COLS],
         outputCol="features",
         handleInvalid="keep",
     )
@@ -122,6 +123,8 @@ def main():
     p.add_argument("--data", default=str(DATASET_PATH))
     p.add_argument("--test-data", default=None, help="période de test séparée (ex. data/transactions_test.csv)")
     p.add_argument("--algo", choices=list(ALGOS), default="rf")
+    p.add_argument("--sans-profils", action="store_true",
+                   help="mesure l'apport des profils : même modèle sans eux (écrit seulement metrics_sans_profils.json)")
     p.add_argument("--compare", action="store_true", help="compare les 3 algorithmes sur la fin de la période d'entraînement")
     a = p.parse_args()
 
@@ -160,7 +163,8 @@ def main():
 
     train, n_train, n_fraud = with_class_weight(add_features(train_raw, profiles_train))
     print(f"Entraînement : {n_train} transactions dont {n_fraud} fraudes ({ALGOS[a.algo]})")
-    model = build_pipeline(a.algo).fit(train)
+    numeric = [c for c in NUMERIC_COLS if c not in PROFILE_COLS] if a.sans_profils else NUMERIC_COLS
+    model = build_pipeline(a.algo, numeric).fit(train)
 
     pred = model.transform(add_features(test_raw, profiles_test))
     pred = pred.withColumn("fraud_score", vector_to_array("probability")[1])
@@ -205,10 +209,15 @@ def main():
     for name, s in by_scenario.items():
         print(f"  {name:9s} rappel HIGH {s['recall_high']:.1%}  MEDIUM+ {s['recall_medium']:.1%}  (n={s['n']})")
 
-    model.write().overwrite().save(str(MODEL_PATH))
-    profiles_test.write.mode("overwrite").parquet(str(PROFILES_PATH))
-    METRICS_PATH.write_text(json.dumps(metrics, indent=2, ensure_ascii=False))
-    print(f"Modèle, profils et métriques sauvegardés dans {MODEL_PATH.parent}")
+    if a.sans_profils:  # expérience de comparaison : on ne remplace pas le modèle servi
+        out = METRICS_PATH.with_name("metrics_sans_profils.json")
+        out.write_text(json.dumps(metrics, indent=2, ensure_ascii=False))
+        print(f"Métriques sans profils : {out}")
+    else:
+        model.write().overwrite().save(str(MODEL_PATH))
+        profiles_test.write.mode("overwrite").parquet(str(PROFILES_PATH))
+        METRICS_PATH.write_text(json.dumps(metrics, indent=2, ensure_ascii=False))
+        print(f"Modèle, profils et métriques sauvegardés dans {MODEL_PATH.parent}")
     spark.stop()
 
 

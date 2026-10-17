@@ -34,6 +34,9 @@ NUMERIC_COLS = [
     "has_history", "log_n_tx_hist", "amount_vs_avg", "amount_vs_max",
     "device_is_new", "receiver_is_new", "city_is_new",
 ]
+# Features issues des profils de comptes (retirées par train_model --sans-profils, pour mesurer leur apport)
+PROFILE_COLS = ["has_history", "log_n_tx_hist", "amount_vs_avg", "amount_vs_max",
+                "device_is_new", "receiver_is_new", "city_is_new"]
 
 
 def build_profiles(history: DataFrame) -> DataFrame:
