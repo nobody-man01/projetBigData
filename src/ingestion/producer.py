@@ -1,16 +1,17 @@
 """MEMBRE 3 : Producer Kafka. Rejoue le dataset CSV vers le topic Kafka comme un flux temps réel.
 
-Usage attendu:
+Usage:
     python -m src.ingestion.producer --rate 20          # 20 transactions/seconde
     python -m src.ingestion.producer --rate 100 --limit 5000
+    python -m src.ingestion.producer --since 2026-09-24T00:00:00+00:00   # seulement à partir de cette date
 
-À FAIRE (voir docs/TACHES.md, fiche M3) :
-  - lire config.settings.DATASET_PATH avec pandas (par paquets de 10 000 lignes, pas tout en mémoire)
-  - valider chaque ligne avec src.common.schema.validate_transaction (ignorer + compter les invalides)
-  - envoyer chaque transaction en JSON (UTF-8) sur config.settings.KAFKA_TOPIC_RAW
-    avec key=transaction_id (bytes), via kafka-python KafkaProducer
-  - respecter le débit --rate (time.sleep), afficher un compteur toutes les 5 secondes
-  - flush() proprement à la fin ou sur Ctrl+C
+Fonctionnement :
+  - lit config.settings.DATASET_PATH avec pandas, par paquets de 10 000 lignes (pas tout en mémoire) ;
+  - valide chaque ligne avec src.common.schema.validate_transaction (invalides ignorées et comptées) ;
+  - envoie chaque transaction en JSON (UTF-8) sur config.settings.KAFKA_TOPIC_RAW, key=transaction_id ;
+    acks="all" et 5 tentatives : un message n'est perdu que si Kafka reste injoignable ;
+  - ajoute `sent_at` (heure d'envoi, ISO 8601 UTC) pour mesurer la latence de bout en bout ;
+  - respecte le débit --rate, affiche un compteur toutes les 5 secondes, flush() propre à la fin ou sur Ctrl+C.
 """
 import argparse
 import json
@@ -18,11 +19,15 @@ import logging
 import math
 import threading
 import time
+from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
 from kafka import KafkaProducer
-from kafka.errors import NoBrokersAvailable
+try:
+    from kafka.errors import NoBrokersAvailable  # kafka-python 2.x
+except ImportError:  # kafka-python 3.x : l'erreur a disparu, la connexion échoue avec KafkaError
+    from kafka.errors import KafkaError as NoBrokersAvailable
 
 from config.settings import DATASET_PATH, KAFKA_BOOTSTRAP, KAFKA_TOPIC_RAW
 from src.common.schema import FIELDS, validate_transaction
@@ -78,16 +83,21 @@ def _on_send_error(exc) -> None:
     log.error("Échec d'envoi Kafka : %s", exc)
 
 
-def _iter_rows():
-    """Génère les lignes du CSV une par une, en lisant par paquets pour limiter la mémoire."""
+def _iter_rows(since: str = None):
+    """Génère les lignes du CSV une par une, en lisant par paquets pour limiter la mémoire.
+
+    since : date ISO 8601 ; les transactions plus anciennes sont sautées (ex. rejouer la période de test).
+    """
     # Les colonnes texte du contrat (ids, ville...) sont lues en str : sans cela, pandas
     # transformerait un identifiant numérique en entier et la validation le rejetterait.
     dtypes = {name: str for name, typ in FIELDS.items() if typ is str}
     for chunk in pd.read_csv(DATASET_PATH, chunksize=CHUNK_SIZE, dtype=dtypes):
+        if since:
+            chunk = chunk[pd.to_datetime(chunk["timestamp"], utc=True) >= pd.Timestamp(since)]
         yield from chunk.to_dict("records")
 
 
-def run(rate: float, limit: int = None) -> None:
+def run(rate: float, limit: int = None, since: str = None) -> None:
     if rate <= 0:
         raise ValueError("--rate doit être strictement positif")
 
@@ -110,7 +120,7 @@ def run(rate: float, limit: int = None) -> None:
     start = last_report = time.monotonic()
 
     try:
-        for row in _iter_rows():
+        for row in _iter_rows(since):
             if limit is not None and sent >= limit:
                 break
 
@@ -122,6 +132,7 @@ def run(rate: float, limit: int = None) -> None:
                     log.warning("Transaction invalide ignorée : %s", errors)
                 continue
 
+            message["sent_at"] = datetime.now(timezone.utc).isoformat()
             producer.send(
                 KAFKA_TOPIC_RAW, key=message["transaction_id"], value=message
             ).add_errback(_on_send_error)
@@ -158,8 +169,9 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--rate", type=float, default=20.0, help="transactions par seconde")
     p.add_argument("--limit", type=int, default=None, help="nombre max de transactions")
+    p.add_argument("--since", default=None, help="date ISO 8601 de début (transactions plus anciennes sautées)")
     a = p.parse_args()
-    run(a.rate, a.limit)
+    run(a.rate, a.limit, a.since)
 
 
 if __name__ == "__main__":
