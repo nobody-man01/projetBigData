@@ -29,13 +29,14 @@ from pyspark.ml.classification import GBTClassifier, LogisticRegression, RandomF
 from pyspark.ml.evaluation import BinaryClassificationEvaluator
 from pyspark.ml.feature import OneHotEncoder, StandardScaler, StringIndexer, VectorAssembler
 from pyspark.ml.functions import vector_to_array
-from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 
 from config.settings import (MODEL_PATH, PROFILES_PATH, METRICS_PATH, DATASET_PATH,
                              THRESHOLD_HIGH, THRESHOLD_MEDIUM)
-from src.ml.features import (CATEGORICAL_COLS, NUMERIC_COLS, PROFILE_COLS, TX_SCHEMA, add_features,
-                             build_profiles)
+from src.ml.spark import get_spark
+from src.ml.features import (CATEGORICAL_COLS, NUMERIC_COLS, PROFILE_COLS, TX_SCHEMA, VELOCITY_COLS,
+                             VELOCITY_HISTORY_S,
+                             add_features, add_velocity_features, build_profiles)
 
 ALGOS = {
     "logreg": "Régression logistique",
@@ -123,22 +124,25 @@ def main():
     p.add_argument("--data", default=str(DATASET_PATH))
     p.add_argument("--test-data", default=None, help="période de test séparée (ex. data/transactions_test.csv)")
     p.add_argument("--algo", choices=list(ALGOS), default="rf")
-    p.add_argument("--sans-profils", action="store_true",
-                   help="mesure l'apport des profils : même modèle sans eux (écrit seulement metrics_sans_profils.json)")
+    p.add_argument("--sans-profils", action="store_true", help="expérience : modèle sans les features de profil")
+    p.add_argument("--sans-frequence", action="store_true", help="expérience : modèle sans les features de fréquence")
     p.add_argument("--compare", action="store_true", help="compare les 3 algorithmes sur la fin de la période d'entraînement")
     a = p.parse_args()
 
-    spark = (SparkSession.builder.appName("momo-fraud-train").master("local[*]")
-             .config("spark.driver.memory", "6g").getOrCreate())
-    spark.sparkContext.setLogLevel("ERROR")
+    spark = get_spark("momo-fraud-train", conf={"spark.driver.memory": "6g"})
 
-    df = (spark.read.csv(a.data, header=True, schema=TX_SCHEMA)
-          .withColumn("ts_epoch", F.to_timestamp("timestamp").cast("long")).cache())
+    raw = (spark.read.csv(a.data, header=True, schema=TX_SCHEMA)
+           .withColumn("ts_epoch", F.to_timestamp("timestamp").cast("long")))
+    df = add_velocity_features(raw).cache()   # fenêtres glissantes : passé uniquement, pas de fuite
     if a.test_data:  # test sur une période postérieure séparée
         q50, q70, q80 = df.approxQuantile("ts_epoch", [0.5, 0.8, 1.0], 0.001)
-        test_raw = (spark.read.csv(a.test_data, header=True, schema=TX_SCHEMA)
-                    .withColumn("ts_epoch", F.to_timestamp("timestamp").cast("long")))
-        test_start = test_raw.agg(F.min("ts_epoch")).first()[0]
+        test_only = (spark.read.csv(a.test_data, header=True, schema=TX_SCHEMA)
+                     .withColumn("ts_epoch", F.to_timestamp("timestamp").cast("long")))
+        test_start = test_only.agg(F.min("ts_epoch")).first()[0]
+        # La dernière heure du jeu principal sert d'historique aux fenêtres des premières transactions de test
+        tail = raw.filter(F.col("ts_epoch") >= test_start - VELOCITY_HISTORY_S).withColumn("_test", F.lit(False))
+        test_raw = (add_velocity_features(tail.unionByName(test_only.withColumn("_test", F.lit(True))))
+                    .filter("_test").drop("_test"))
     else:
         q50, q70, q80 = df.approxQuantile("ts_epoch", [0.5, 0.7, 0.8], 0.001)
         test_raw = df.filter(F.col("ts_epoch") > q80)
@@ -163,7 +167,9 @@ def main():
 
     train, n_train, n_fraud = with_class_weight(add_features(train_raw, profiles_train))
     print(f"Entraînement : {n_train} transactions dont {n_fraud} fraudes ({ALGOS[a.algo]})")
-    numeric = [c for c in NUMERIC_COLS if c not in PROFILE_COLS] if a.sans_profils else NUMERIC_COLS
+    removed = (PROFILE_COLS if a.sans_profils else []) + (VELOCITY_COLS if a.sans_frequence else [])
+    numeric = [c for c in NUMERIC_COLS if c not in removed]
+    variant = "_".join(n for n, on in (("sans_profils", a.sans_profils), ("sans_frequence", a.sans_frequence)) if on)
     model = build_pipeline(a.algo, numeric).fit(train)
 
     pred = model.transform(add_features(test_raw, profiles_test))
@@ -190,6 +196,7 @@ def main():
     metrics = {
         "created_at": datetime.now(timezone.utc).isoformat(),
         "data": a.data, "test_data": a.test_data, "algo": a.algo, "algo_label": ALGOS[a.algo],
+        "features": numeric + CATEGORICAL_COLS,
         "n_rows": int(df.count()), "n_train": n_train, "n_train_fraud": n_fraud,
         "n_test": int(len(y)), "n_test_fraud": int(y.sum()),
         "test_period_start": datetime.fromtimestamp(test_start, timezone.utc).isoformat(),
@@ -209,10 +216,10 @@ def main():
     for name, s in by_scenario.items():
         print(f"  {name:9s} rappel HIGH {s['recall_high']:.1%}  MEDIUM+ {s['recall_medium']:.1%}  (n={s['n']})")
 
-    if a.sans_profils:  # expérience de comparaison : on ne remplace pas le modèle servi
-        out = METRICS_PATH.with_name("metrics_sans_profils.json")
+    if variant:  # expérience de comparaison : on ne remplace pas le modèle servi
+        out = METRICS_PATH.with_name(f"metrics_{variant}.json")
         out.write_text(json.dumps(metrics, indent=2, ensure_ascii=False))
-        print(f"Métriques sans profils : {out}")
+        print(f"Métriques de l'expérience : {out}")
     else:
         model.write().overwrite().save(str(MODEL_PATH))
         profiles_test.write.mode("overwrite").parquet(str(PROFILES_PATH))
