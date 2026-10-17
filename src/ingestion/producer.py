@@ -4,6 +4,7 @@ Usage:
     python -m src.ingestion.producer --rate 20          # 20 transactions/seconde
     python -m src.ingestion.producer --rate 100 --limit 5000
     python -m src.ingestion.producer --since 2026-09-24T00:00:00+00:00   # seulement à partir de cette date
+    python -m src.ingestion.producer --data data/transactions_test.csv    # rejouer un autre fichier
 
 Fonctionnement :
   - lit config.settings.DATASET_PATH avec pandas, par paquets de 10 000 lignes (pas tout en mémoire) ;
@@ -83,7 +84,7 @@ def _on_send_error(exc) -> None:
     log.error("Échec d'envoi Kafka : %s", exc)
 
 
-def _iter_rows(since: str = None):
+def _iter_rows(since: str = None, path=DATASET_PATH):
     """Génère les lignes du CSV une par une, en lisant par paquets pour limiter la mémoire.
 
     since : date ISO 8601 ; les transactions plus anciennes sont sautées (ex. rejouer la période de test).
@@ -91,13 +92,13 @@ def _iter_rows(since: str = None):
     # Les colonnes texte du contrat (ids, ville...) sont lues en str : sans cela, pandas
     # transformerait un identifiant numérique en entier et la validation le rejetterait.
     dtypes = {name: str for name, typ in FIELDS.items() if typ is str}
-    for chunk in pd.read_csv(DATASET_PATH, chunksize=CHUNK_SIZE, dtype=dtypes):
+    for chunk in pd.read_csv(path, chunksize=CHUNK_SIZE, dtype=dtypes):
         if since:
             chunk = chunk[pd.to_datetime(chunk["timestamp"], utc=True) >= pd.Timestamp(since)]
         yield from chunk.to_dict("records")
 
 
-def run(rate: float, limit: int = None, since: str = None) -> None:
+def run(rate: float, limit: int = None, since: str = None, path=DATASET_PATH) -> None:
     if rate <= 0:
         raise ValueError("--rate doit être strictement positif")
 
@@ -120,7 +121,7 @@ def run(rate: float, limit: int = None, since: str = None) -> None:
     start = last_report = time.monotonic()
 
     try:
-        for row in _iter_rows(since):
+        for row in _iter_rows(since, path):
             if limit is not None and sent >= limit:
                 break
 
@@ -170,8 +171,9 @@ def main():
     p.add_argument("--rate", type=float, default=20.0, help="transactions par seconde")
     p.add_argument("--limit", type=int, default=None, help="nombre max de transactions")
     p.add_argument("--since", default=None, help="date ISO 8601 de début (transactions plus anciennes sautées)")
+    p.add_argument("--data", default=str(DATASET_PATH), help="CSV à rejouer (par défaut data/transactions.csv)")
     a = p.parse_args()
-    run(a.rate, a.limit, a.since)
+    run(a.rate, a.limit, a.since, a.data)
 
 
 if __name__ == "__main__":
