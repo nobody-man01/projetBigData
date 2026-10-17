@@ -9,6 +9,8 @@ Découpage TEMPOREL (on apprend sur le passé, on évalue sur le futur, comme en
     [0 % ─ 50 %]   historique : sert uniquement à calculer les profils de comptes
     [50 % ─ 80 %]  entraînement (dont 70-80 % en validation avec --compare)
     [80 % ─ 100 %] test : profils recalculés sur tout ce qui précède (0-80 %), comme en production
+Avec --test-data (période postérieure produite par le générateur, --test-days) : tout --data sert à
+l'historique (0-50 %) et à l'entraînement (50-100 %), et le test se fait sur --test-data.
 
 Sorties (dossier models/) :
     fraud_pipeline/     le PipelineModel Spark
@@ -18,6 +20,7 @@ Sorties (dossier models/) :
 import argparse
 import json
 from datetime import datetime, timezone
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -29,7 +32,7 @@ from pyspark.ml.functions import vector_to_array
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 
-from config.settings import (DATA_DIR, MODEL_PATH, PROFILES_PATH, METRICS_PATH, DATASET_PATH,
+from config.settings import (MODEL_PATH, PROFILES_PATH, METRICS_PATH, DATASET_PATH,
                              THRESHOLD_HIGH, THRESHOLD_MEDIUM)
 from src.ml.features import CATEGORICAL_COLS, NUMERIC_COLS, TX_SCHEMA, add_features, build_profiles
 
@@ -117,8 +120,9 @@ def feature_importances(model, pred) -> list:
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--data", default=str(DATASET_PATH))
+    p.add_argument("--test-data", default=None, help="période de test séparée (ex. data/transactions_test.csv)")
     p.add_argument("--algo", choices=list(ALGOS), default="rf")
-    p.add_argument("--compare", action="store_true", help="compare les 3 algorithmes (validation 70-80 %%)")
+    p.add_argument("--compare", action="store_true", help="compare les 3 algorithmes sur la fin de la période d'entraînement")
     a = p.parse_args()
 
     spark = (SparkSession.builder.appName("momo-fraud-train").master("local[*]")
@@ -127,10 +131,17 @@ def main():
 
     df = (spark.read.csv(a.data, header=True, schema=TX_SCHEMA)
           .withColumn("ts_epoch", F.to_timestamp("timestamp").cast("long")).cache())
-    q50, q70, q80 = df.approxQuantile("ts_epoch", [0.5, 0.7, 0.8], 0.001)
+    if a.test_data:  # test sur une période postérieure séparée
+        q50, q70, q80 = df.approxQuantile("ts_epoch", [0.5, 0.8, 1.0], 0.001)
+        test_raw = (spark.read.csv(a.test_data, header=True, schema=TX_SCHEMA)
+                    .withColumn("ts_epoch", F.to_timestamp("timestamp").cast("long")))
+        test_start = test_raw.agg(F.min("ts_epoch")).first()[0]
+    else:
+        q50, q70, q80 = df.approxQuantile("ts_epoch", [0.5, 0.7, 0.8], 0.001)
+        test_raw = df.filter(F.col("ts_epoch") > q80)
+        test_start = q80
     history, test_history = df.filter(F.col("ts_epoch") <= q50), df.filter(F.col("ts_epoch") <= q80)
     train_raw = df.filter((F.col("ts_epoch") > q50) & (F.col("ts_epoch") <= q80))
-    test_raw = df.filter(F.col("ts_epoch") > q80)
 
     profiles_train = build_profiles(history).cache()
     profiles_test = build_profiles(test_history).cache()
@@ -160,9 +171,10 @@ def main():
     res = pred.select("transaction_id", "is_fraud", "fraud_score").toPandas()
     y, score = res["is_fraud"].to_numpy(), res["fraud_score"].to_numpy()
     by_scenario = {}
-    scenarios_path = DATA_DIR / "transactions_scenarios.csv"
+    test_file = Path(a.test_data or a.data)
+    scenarios_path = test_file.with_name(f"{test_file.stem}_scenarios.csv")
     if scenarios_path.exists():  # uniquement pour l'analyse (jamais pour l'entraînement)
-        sc = pd.read_csv(scenarios_path).dropna()
+        sc = pd.read_csv(scenarios_path, usecols=["transaction_id", "fraud_scenario"]).dropna()
         res = res.merge(sc, on="transaction_id", how="left")
         for name, g in res[res["is_fraud"] == 1].groupby("fraud_scenario"):
             by_scenario[name] = {
@@ -173,10 +185,10 @@ def main():
 
     metrics = {
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "data": a.data, "algo": a.algo, "algo_label": ALGOS[a.algo],
+        "data": a.data, "test_data": a.test_data, "algo": a.algo, "algo_label": ALGOS[a.algo],
         "n_rows": int(df.count()), "n_train": n_train, "n_train_fraud": n_fraud,
         "n_test": int(len(y)), "n_test_fraud": int(y.sum()),
-        "test_period_start": datetime.fromtimestamp(q80, timezone.utc).isoformat(),
+        "test_period_start": datetime.fromtimestamp(test_start, timezone.utc).isoformat(),
         "auc_pr": pr, "auc_roc": roc, "fraud_rate_test": float(y.mean()),
         "at_high": threshold_metrics(y, score, THRESHOLD_HIGH),
         "at_medium": threshold_metrics(y, score, THRESHOLD_MEDIUM),
