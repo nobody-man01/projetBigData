@@ -39,6 +39,8 @@ COL_SCORED = "scored_transactions"  # écrit par le lead (Spark), lu par le dash
 DATA_DIR = ROOT / "data"
 DATASET_PATH = DATA_DIR / "transactions.csv"
 MODEL_PATH = ROOT / "models" / "fraud_pipeline"
+PROFILES_PATH = ROOT / "models" / "account_profiles"   # profils de comptes (couche batch)
+METRICS_PATH = ROOT / "models" / "metrics.json"        # métriques du dernier entraînement
 CHECKPOINT_DIR = ROOT / "checkpoints" / "scoring"
 
 # --- Seuils de risque (appliqués sur la probabilité de fraude) ---

@@ -26,3 +26,6 @@ local/
 # Fichiers créés par R / RStudio
 .Rhistory
 .RData
+
+# Journaux de la démo
+logs/

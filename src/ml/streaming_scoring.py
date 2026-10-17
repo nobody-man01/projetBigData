@@ -11,9 +11,10 @@ from pyspark.ml import PipelineModel
 from pyspark.ml.functions import vector_to_array
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
+from pyspark.sql.types import StringType, StructField, StructType
 
 from config.settings import (CHECKPOINT_DIR, COL_SCORED, KAFKA_BOOTSTRAP, KAFKA_TOPIC_RAW,
-                             MODEL_PATH, MONGO_DB, MONGO_URI, SPARK_KAFKA_PACKAGE,
+                             MODEL_PATH, MONGO_DB, MONGO_URI, PROFILES_PATH, SPARK_KAFKA_PACKAGE,
                              THRESHOLD_HIGH, THRESHOLD_MEDIUM)
 from src.ml.features import TX_SCHEMA, add_features
 
@@ -26,6 +27,9 @@ def main():
              .config("spark.sql.shuffle.partitions", "4").getOrCreate())
     spark.sparkContext.setLogLevel("WARN")
     model = PipelineModel.load(str(MODEL_PATH))
+    # Profils de comptes calculés en batch par train_model : table statique jointe au flux
+    profiles = spark.read.parquet(str(PROFILES_PATH)).cache()
+    print(f"{profiles.count()} profils de comptes chargés")
 
     raw = (spark.readStream.format("kafka")
            .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP)
@@ -33,10 +37,12 @@ def main():
            .option("startingOffsets", "latest")
            .option("failOnDataLoss", "false").load())
 
-    parsed = (raw.select(F.from_json(F.col("value").cast("string"), TX_SCHEMA).alias("tx"))
+    # sent_at (ajouté par le producer) ne fait pas partie du contrat : il sert à mesurer la latence
+    message_schema = StructType(TX_SCHEMA.fields + [StructField("sent_at", StringType())])
+    parsed = (raw.select(F.from_json(F.col("value").cast("string"), message_schema).alias("tx"))
               .select("tx.*").filter(F.col("transaction_id").isNotNull()))
 
-    scored = model.transform(add_features(parsed))
+    scored = model.transform(add_features(parsed, profiles))
     scored = (scored
               .withColumn("fraud_score", vector_to_array("probability")[1])
               .withColumn("prediction", F.col("prediction").cast("int"))
@@ -45,17 +51,22 @@ def main():
                            .when(F.col("fraud_score") >= THRESHOLD_MEDIUM, "MEDIUM")
                            .otherwise("LOW")))
     # On ne garde que les colonnes du contrat (schema.FIELDS + SCORED_EXTRA) + features utiles à l'explication
-    keep = [f.name for f in TX_SCHEMA.fields] + ["fraud_score", "prediction", "risk_level",
-                                                 "amount_to_balance_ratio", "sender_emptied", "is_night"]
+    keep = [f.name for f in TX_SCHEMA.fields] + ["sent_at", "fraud_score", "prediction", "risk_level",
+                                                 "amount_to_balance_ratio", "sender_emptied", "is_night",
+                                                 "amount_vs_avg", "device_is_new", "receiver_is_new",
+                                                 "city_is_new"]
     scored = scored.select(*keep)
 
     def write_batch(batch_df, batch_id: int):
         rows = [r.asDict() for r in batch_df.collect()]
         if not rows:
             return
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(timezone.utc)
         for r in rows:
-            r["scored_at"] = now
+            r["scored_at"] = now.isoformat()
+            # Latence de bout en bout : envoi par le producer -> écriture du score dans MongoDB
+            if r.get("sent_at"):
+                r["latency_ms"] = (now - datetime.fromisoformat(r["sent_at"])).total_seconds() * 1000
         client = MongoClient(MONGO_URI)
         try:
             # Upsert sur transaction_id => idempotent si Spark rejoue un micro-batch
