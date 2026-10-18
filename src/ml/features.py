@@ -82,7 +82,7 @@ def build_profiles(history: DataFrame) -> DataFrame:
     )
 
 
-def _add_profile_features(df: DataFrame, profiles: DataFrame) -> DataFrame:
+def _add_profile_features(df: DataFrame, profiles: DataFrame, broadcast: bool = True) -> DataFrame:
     """Compare la transaction aux habitudes du compte (jointure flux / table statique, possible en streaming)."""
     known = F.col("p_n_tx").isNotNull()
 
@@ -91,7 +91,7 @@ def _add_profile_features(df: DataFrame, profiles: DataFrame) -> DataFrame:
         return F.when(known & ~F.array_contains(values_col, F.col(value_col)), 1.0).otherwise(0.0)
 
     return (
-        df.join(F.broadcast(profiles), df["sender_id"] == profiles["p_sender_id"], "left")
+        df.join(F.broadcast(profiles) if broadcast else profiles, df["sender_id"] == profiles["p_sender_id"], "left")
         .withColumn("has_history", F.when(known, 1.0).otherwise(0.0))
         .withColumn("log_n_tx_hist", F.log1p(F.coalesce(F.col("p_n_tx"), F.lit(0)).cast("double")))
         .withColumn("amount_vs_avg", F.coalesce(F.col("amount") / F.col("p_avg_amount"), F.lit(1.0)))
@@ -103,11 +103,13 @@ def _add_profile_features(df: DataFrame, profiles: DataFrame) -> DataFrame:
     )
 
 
-def add_features(df: DataFrame, profiles: DataFrame) -> DataFrame:
+def add_features(df: DataFrame, profiles: DataFrame, broadcast: bool = True) -> DataFrame:
     """Ajoute les features dérivées. Fonctionne en batch ET en streaming (pas de fenêtre ni d'agrégat sur le flux)."""
     ts = F.to_timestamp("timestamp")
     debit_types = ["CASH_OUT", "TRANSFER", "PAYMENT", "AIRTIME"]
-    df = _add_profile_features(df, profiles)
+    # broadcast : la table des profils est copiée sur chaque executor (jointure rapide, idéale en streaming).
+    # Avec des millions de comptes (PaySim), elle ne tient plus en mémoire : jointure répartie classique.
+    df = _add_profile_features(df, profiles, broadcast)
     return (
         df
         .withColumn("hour", F.hour(ts).cast("double"))

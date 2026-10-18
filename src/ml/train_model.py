@@ -39,6 +39,8 @@ from src.ml.features import (CATEGORICAL_COLS, NUMERIC_COLS, PROFILE_COLS, TX_SC
                              VELOCITY_HISTORY_S,
                              add_features, add_velocity_features, build_profiles)
 
+BROADCAST_MAX_PROFILES = 500_000
+
 ALGOS = {
     "logreg": "Régression logistique",
     "rf": "Forêt aléatoire",
@@ -155,11 +157,15 @@ def main():
 
     profiles_train = build_profiles(history).cache()
     profiles_test = build_profiles(test_history).cache()
+    # Au-delà de 500 000 comptes, la table des profils n'est plus copiée sur chaque executor (voir features.py)
+    bc = profiles_test.count() <= BROADCAST_MAX_PROFILES
+    if not bc:
+        print(f"{profiles_test.count():,} profils : jointure répartie au lieu d'une copie sur chaque executor")
 
     comparison = []
     if a.compare:
-        fit_part = add_features(train_raw.filter(F.col("ts_epoch") <= q70), profiles_train)
-        valid = add_features(train_raw.filter(F.col("ts_epoch") > q70), profiles_train)
+        fit_part = add_features(train_raw.filter(F.col("ts_epoch") <= q70), profiles_train, bc)
+        valid = add_features(train_raw.filter(F.col("ts_epoch") > q70), profiles_train, bc)
         fit_part, _, _ = with_class_weight(fit_part)
         for algo, label in ALGOS.items():
             score = auc_pr(build_pipeline(algo).fit(fit_part).transform(valid))
@@ -168,14 +174,14 @@ def main():
         a.algo = max(comparison, key=lambda r: r["auc_pr_validation"])["algo"]
         print(f"Algorithme retenu : {ALGOS[a.algo]}")
 
-    train, n_train, n_fraud = with_class_weight(add_features(train_raw, profiles_train))
+    train, n_train, n_fraud = with_class_weight(add_features(train_raw, profiles_train, bc))
     print(f"Entraînement : {n_train} transactions dont {n_fraud} fraudes ({ALGOS[a.algo]})")
     removed = (PROFILE_COLS if a.sans_profils else []) + (VELOCITY_COLS if a.sans_frequence else [])
     numeric = [c for c in NUMERIC_COLS if c not in removed]
     variant = "_".join(n for n, on in (("sans_profils", a.sans_profils), ("sans_frequence", a.sans_frequence)) if on)
     model = build_pipeline(a.algo, numeric).fit(train)
 
-    pred = model.transform(add_features(test_raw, profiles_test))
+    pred = model.transform(add_features(test_raw, profiles_test, bc))
     pred = pred.withColumn("fraud_score", vector_to_array("probability")[1])
     roc = BinaryClassificationEvaluator(labelCol="is_fraud", metricName="areaUnderROC").evaluate(pred)
     pr = auc_pr(pred)
