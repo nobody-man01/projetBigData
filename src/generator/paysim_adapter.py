@@ -39,8 +39,12 @@ def _stable_bucket(names: pd.Series, k: int, salt: str) -> np.ndarray:
     return (pd.util.hash_pandas_object(salt + names.astype(str), index=False).values % k).astype(int)
 
 
-def adapt_paysim(raw: pd.DataFrame, start: datetime = None, scale: float = 1.0, seed: int = 42) -> pd.DataFrame:
-    """Convertit un DataFrame PaySim en DataFrame au format FIELDS (mêmes colonnes, même ordre)."""
+def adapt_paysim(raw: pd.DataFrame, start: datetime = None, scale: float = 1.0, seed: int = 42,
+                 offset: int = 0) -> pd.DataFrame:
+    """Convertit un DataFrame PaySim en DataFrame au format FIELDS (mêmes colonnes, même ordre).
+
+    offset : numéro de la première transaction (identifiants uniques quand on convertit par paquets).
+    """
     missing = [c for c in PAYSIM_COLUMNS if c not in raw.columns]
     if missing:
         raise ValueError(f"Colonnes PaySim manquantes : {missing}")
@@ -50,9 +54,9 @@ def adapt_paysim(raw: pd.DataFrame, start: datetime = None, scale: float = 1.0, 
     rng = np.random.default_rng(seed)
     # step = heure écoulée depuis le début ; on ajoute minutes/secondes pour ne pas avoir 1 000 lignes à la même seconde
     seconds = (df["step"].astype(int) - 1) * 3600 + rng.integers(0, 3600, len(df))
-    ts = (pd.Timestamp(start) + pd.to_timedelta(seconds, unit="s")).map(lambda t: t.isoformat())
+    ts = (pd.Timestamp(start) + pd.to_timedelta(seconds, unit="s")).dt.strftime("%Y-%m-%dT%H:%M:%S+00:00")
     out = pd.DataFrame({
-        "transaction_id": [f"ps-{i:09d}" for i in range(len(df))],
+        "transaction_id": [f"ps-{i:09d}" for i in range(offset, offset + len(df))],
         "timestamp": ts.values,
         "sender_id": df["nameOrig"].values,
         "receiver_id": df["nameDest"].values,
@@ -86,11 +90,16 @@ def main():
     if not Path(a.paysim).exists():
         raise SystemExit(f"Fichier introuvable : {a.paysim}\nTélécharge PaySim sur Kaggle (ealaxi/paysim1) "
                          "et place le CSV dans data/ (voir l'en-tête de ce fichier).")
-    raw = pd.read_csv(a.paysim, usecols=PAYSIM_COLUMNS, nrows=a.max_rows)
-    out = adapt_paysim(raw, scale=a.scale)
-    out.to_csv(a.out, index=False)
-    print(f"{len(raw)} lignes lues -> {len(out)} transactions écrites dans {a.out} "
-          f"(fraudes: {out.is_fraud.sum()}, taux {out.is_fraud.mean():.3%})")
+    # Lecture par paquets d'un million de lignes : PaySim complet (6,36 M) tient ainsi dans peu de mémoire
+    n_read = n_out = n_fraud = 0
+    reader = pd.read_csv(a.paysim, usecols=PAYSIM_COLUMNS, nrows=a.max_rows, chunksize=1_000_000)
+    for i, raw in enumerate(reader):
+        out = adapt_paysim(raw, scale=a.scale, seed=42 + i, offset=n_out)
+        out.to_csv(a.out, index=False, mode="w" if i == 0 else "a", header=i == 0)
+        n_read, n_out, n_fraud = n_read + len(raw), n_out + len(out), n_fraud + int(out.is_fraud.sum())
+        print(f"  {n_read:,} lignes lues".replace(",", " "))
+    print(f"{n_read} lignes lues -> {n_out} transactions écrites dans {a.out} "
+          f"(fraudes: {n_fraud}, taux {n_fraud / max(n_out, 1):.3%})")
 
 
 if __name__ == "__main__":
