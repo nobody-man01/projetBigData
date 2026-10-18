@@ -17,6 +17,7 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_HEAP_OPTS: -Xms384m -Xmx512m
     healthcheck:
       test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"]
       interval: 15s
@@ -37,6 +38,8 @@ services:
 
   mongo:
     image: mongo:7
+    # Par défaut, MongoDB réserve jusqu'à la moitié de la RAM pour son cache : on le limite à 512 Mo
+    command: ["mongod", "--wiredTigerCacheSizeGB", "0.5"]
     container_name: momo-mongo
     ports:
       - "27017:27017"

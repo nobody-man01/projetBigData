@@ -131,6 +131,8 @@ services:
 
   mongo:
     image: mongo:7
+    # Par défaut, MongoDB réserve jusqu'à la moitié de la RAM pour son cache : on le limite à 512 Mo
+    command: ["mongod", "--wiredTigerCacheSizeGB", "0.5"]
     container_name: momo-mongo
     ports: ["27017:27017"]
     volumes:
