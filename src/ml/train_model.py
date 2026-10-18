@@ -123,6 +123,8 @@ def feature_importances(model, pred) -> list:
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--data", default=str(DATASET_PATH))
+    p.add_argument("--out", default=str(MODEL_PATH.parent),
+                   help="dossier de sortie (modèle, profils, métriques) ; models/ = modèle utilisé par la démo")
     p.add_argument("--test-data", default=None, help="période de test séparée (ex. data/transactions_test.csv)")
     p.add_argument("--algo", choices=list(ALGOS), default="rf")
     p.add_argument("--sans-profils", action="store_true", help="expérience : modèle sans les features de profil")
@@ -217,15 +219,17 @@ def main():
     for name, s in by_scenario.items():
         print(f"  {name:9s} rappel HIGH {s['recall_high']:.1%}  MEDIUM+ {s['recall_medium']:.1%}  (n={s['n']})")
 
+    out_dir = Path(a.out)
+    out_dir.mkdir(parents=True, exist_ok=True)
     if variant:  # expérience de comparaison : on ne remplace pas le modèle servi
-        out = METRICS_PATH.with_name(f"metrics_{variant}.json")
+        out = out_dir / f"metrics_{variant}.json"
         out.write_text(json.dumps(metrics, indent=2, ensure_ascii=False))
         print(f"Métriques de l'expérience : {out}")
     else:
-        model.write().overwrite().save(str(MODEL_PATH))
-        profiles_test.write.mode("overwrite").parquet(str(PROFILES_PATH))
-        METRICS_PATH.write_text(json.dumps(metrics, indent=2, ensure_ascii=False))
-        print(f"Modèle, profils et métriques sauvegardés dans {MODEL_PATH.parent}")
+        model.write().overwrite().save(str(out_dir / MODEL_PATH.name))
+        profiles_test.write.mode("overwrite").parquet(str(out_dir / PROFILES_PATH.name))
+        (out_dir / METRICS_PATH.name).write_text(json.dumps(metrics, indent=2, ensure_ascii=False))
+        print(f"Modèle, profils et métriques sauvegardés dans {out_dir}")
     spark.stop()
 
 
