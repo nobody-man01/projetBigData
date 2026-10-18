@@ -21,13 +21,19 @@ def _spark_kafka_package() -> str:
     """Connecteur Kafka adapté au Spark installé (Spark 3.x : Scala 2.12, Spark 4.x : Scala 2.13)."""
     try:
         spark_version = version("pyspark")
-    except PackageNotFoundError:  # Spark non installé (équipiers hors ML, CI)
-        spark_version = "3.5.1"
+    except PackageNotFoundError:
+        try:  # pyspark fourni par l'installation de Spark (image Docker du cluster) et non par pip
+            import pyspark
+            spark_version = pyspark.__version__
+        except ImportError:  # Spark non installé (équipiers hors ML, CI)
+            spark_version = "3.5.1"
     scala = "2.13" if int(spark_version.split(".")[0]) >= 4 else "2.12"
     return f"org.apache.spark:spark-sql-kafka-0-10_{scala}:{spark_version}"
 
 
 SPARK_KAFKA_PACKAGE = os.getenv("SPARK_KAFKA_PACKAGE") or _spark_kafka_package()
+# local[*] : Spark sur cette machine ; spark://spark-master:7077 : cluster (docker-compose.cluster.yml)
+SPARK_MASTER = os.getenv("SPARK_MASTER", "local[*]")
 
 # --- MongoDB ---
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
