@@ -39,7 +39,7 @@ bash scripts/cluster.sh demo        # scoring sur le cluster, flux et dashboard 
 bash scripts/cluster.sh panne       # arrêt d'un broker pendant le flux : aucune transaction perdue
 bash scripts/cluster.sh down
 ```
-Détails et mesures : `notebooks/05_cluster.ipynb`.
+Détails et mesures : `notebooks/05_cluster.ipynb`. PaySim (6,36 millions de transactions) : `notebooks/06_paysim.ipynb`.
 
 ## Démarrage complet (ordre des commandes, un terminal chacune)
 ```bash
