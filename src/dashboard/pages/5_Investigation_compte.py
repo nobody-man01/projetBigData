@@ -21,6 +21,13 @@ from src.dashboard.ui.charts import style
 from src.dashboard.ui.theme import (COLORS, RISK_LABELS, data_table, format_xaf, fr_num, kpi_card, page_header,
                                     section_header, status_banner)
 
+
+
+def pl(n: int, singular: str, plural: str) -> str:
+    """Accord en nombre : pl(1, "alerte", "alertes") -> « 1 alerte »."""
+    return f"{n} {singular if n <= 1 else plural}"
+
+
 online = ping()
 page_header("Investigation d'un compte", "Historique, comptes liés et décision de l'analyste", live=online)
 if not online:
@@ -63,10 +70,11 @@ if account in decisions:
                   "Action simulée pour la démonstration.", "LOW" if d["action"] == "false_positive" else "HIGH")
 elif n_high:
     first = sent.loc[sent["risk_level"] == "HIGH", "timestamp"].min()
-    status_banner(f"Compte à risque : {n_high} alertes critiques, la première le {first[8:10]}/{first[5:7]} "
+    status_banner(f"Compte à risque : {pl(n_high, 'alerte critique', 'alertes critiques')}, la première le {first[8:10]}/{first[5:7]} "
                   f"à {first[11:16]}.", "HIGH")
 elif n_medium:
-    status_banner(f"Compte à surveiller : {n_medium} transactions au-dessus du seuil « à surveiller ».", "MEDIUM")
+    status_banner(f"Compte à surveiller : {pl(n_medium, 'transaction', 'transactions')} au-dessus du seuil "
+                  "« à surveiller ».", "MEDIUM")
 else:
     status_banner("Aucune alerte pour ce compte sur la période observée.", "LOW")
 
@@ -94,7 +102,8 @@ with right:
         new_devices = [d for d in devices_now if d not in profile["devices"]]
         new_receivers = sent.loc[~sent["receiver_id"].isin(profile["receivers"]), "receiver_id"].nunique()
         section_header("Habitudes connues et écarts",
-                       f"{len(new_devices)} appareil(s) jamais vu(s) avant, {new_receivers} nouveau(x) destinataire(s)"
+                       f"{pl(len(new_devices), 'appareil jamais vu', 'appareils jamais vus')} avant, "
+                       f"{pl(new_receivers, 'nouveau destinataire', 'nouveaux destinataires')}"
                        if devices_now else "Aucune transaction envoyée pendant la période observée")
         st.markdown(
             '<div class="facts">'
@@ -150,7 +159,8 @@ links = account_counterparts(df, account)
 left, right = st.columns([3, 2], gap="large")
 with left:
     risky = int((links["worst_level"] == "HIGH").sum())
-    section_header("Comptes liés", f"{len(links)} contrepartie(s), dont {risky} liée(s) à des alertes critiques")
+    section_header("Comptes liés", f"{pl(len(links), 'contrepartie', 'contreparties')}, dont "
+                                    f"{pl(risky, 'liée', 'liées')} à des alertes critiques")
     shown = links.head(16)
     fig = go.Figure()
     xs, ys = [], []
