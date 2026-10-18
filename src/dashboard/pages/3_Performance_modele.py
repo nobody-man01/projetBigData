@@ -10,7 +10,7 @@ import streamlit as st
 
 from src.dashboard.data_access import load_model_metrics
 from src.dashboard.ui.charts import style
-from src.dashboard.ui.theme import COLORS, kpi_card, page_header, section_header
+from src.dashboard.ui.theme import COLORS, fr_num, fr_pct, kpi_card, page_header, section_header
 
 SCENARIOS = {"ATO": "Prise de contrôle", "VELOCITY": "Rafale", "SCAM": "Arnaque"}
 FEATURE_LABELS = {
@@ -21,6 +21,8 @@ FEATURE_LABELS = {
     "log_n_tx_hist": "Ancienneté du compte (nb d'opérations)", "amount_vs_avg": "Montant / moyenne du compte",
     "amount_vs_max": "Montant / maximum du compte", "device_is_new": "Nouvel appareil",
     "receiver_is_new": "Nouveau destinataire", "city_is_new": "Ville inhabituelle",
+    "sender_n_10min": "Opérations sur 10 min", "log_sender_amount_10min": "Montant envoyé sur 10 min",
+    "sender_n_1h": "Opérations sur 1 h", "pair_n_10min": "Même destinataire sur 10 min",
 }
 
 
@@ -41,15 +43,15 @@ if not m:
 high, medium = m["at_high"], m["at_medium"]
 c1, c2, c3, c4 = st.columns(4)
 with c1:
-    kpi_card("AUC-PR", f"{m['auc_pr']:.2f}", f"hasard = {m['fraud_rate_test']:.2f} (taux de fraude)")
+    kpi_card("AUC-PR", fr_num(m["auc_pr"], 2), f"hasard = {fr_num(m['fraud_rate_test'], 3)} (taux de fraude)")
 with c2:
-    kpi_card("Fraudes détectées", f"{medium['recall']:.0%}", f"seuil {medium['threshold']:.2f} (À surveiller+)",
+    kpi_card("Fraudes détectées", fr_pct(medium["recall"]), f"seuil {fr_num(medium['threshold'], 2)} (à surveiller et plus)",
              COLORS["LOW"])
 with c3:
-    kpi_card("Précision des alertes critiques", f"{high['precision']:.0%}",
-             f"seuil {high['threshold']:.2f} : {high['tp']} vraies / {high['fp']} fausses")
+    kpi_card("Précision des alertes critiques", fr_pct(high["precision"]),
+             f"seuil {fr_num(high['threshold'], 2)} : {high['tp']} vraies / {high['fp']} fausses")
 with c4:
-    kpi_card("Volume d'alertes", f"{medium['alerts_per_1000'] / 10:.1f} %", "des transactions signalées (seuil 0,50)")
+    kpi_card("Volume d'alertes", fr_pct(medium["alerts_per_1000"] / 1000, 1), "des transactions signalées (seuil 0,50)")
 
 curve = pd.DataFrame(m["pr_curve"])
 left, right = st.columns(2, gap="large")
@@ -62,11 +64,11 @@ with left:
     alerts = round(caught / point["precision"]) if point["precision"] > 0 else 0
     a, b, c = st.columns(3)
     with a:
-        kpi_card("Fraudes rattrapées", f"{caught}", f"sur {n_fraud} ({point['recall']:.0%})", COLORS["LOW"])
+        kpi_card("Fraudes rattrapées", f"{caught}", f"sur {n_fraud} ({fr_pct(point['recall'])})", COLORS["LOW"])
     with b:
         kpi_card("Fraudes manquées", f"{n_fraud - caught}", "passent sous le seuil", COLORS["HIGH"])
     with c:
-        kpi_card("Fausses alertes", f"{alerts - caught}", f"précision {point['precision']:.0%}")
+        kpi_card("Fausses alertes", f"{alerts - caught}", f"précision {fr_pct(point['precision'])}")
 
     fig = go.Figure(go.Scatter(x=curve["recall"], y=curve["precision"], mode="lines", name="Courbe PR",
                                line=dict(color=COLORS["accent"], width=2.5)))
@@ -90,8 +92,8 @@ with right:
                            for k, v in m["by_scenario"].items()]).sort_values("Rappel")
         hardest = sc.iloc[0]
         section_header("Détection par scénario", f"{hardest['Scénario']} reste le plus difficile "
-                                                 f"({hardest['Rappel']:.0%} détectées)")
-        fig = px.bar(sc, x="Rappel", y="Scénario", orientation="h", text=sc["Rappel"].map("{:.0%}".format),
+                                                 f"({fr_pct(hardest['Rappel'])} détectées)")
+        fig = px.bar(sc, x="Rappel", y="Scénario", orientation="h", text=sc["Rappel"].map(fr_pct),
                      color_discrete_sequence=[COLORS["LOW"]])
         fig.update_xaxes(range=[0, 1.05], tickformat=".0%")
         st.plotly_chart(style(fig, 200).update_layout(showlegend=False, xaxis_title=None, yaxis_title=None),

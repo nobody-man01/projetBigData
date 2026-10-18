@@ -26,8 +26,12 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 step "1/4 Démarrage de Kafka et MongoDB"
+if docker ps -a --format '{{.Names}}' | grep -q '^momo-kafka-1$'; then
+  echo "Le mode cluster est présent (mêmes noms et mêmes ports) : lancez d'abord  bash scripts/cluster.sh down"; exit 1
+fi
 docker compose up -d
 until docker inspect -f '{{.State.Health.Status}}' momo-kafka 2>/dev/null | grep -q healthy; do sleep 2; done
+until [ "$(docker inspect -f '{{.State.Status}}' momo-kafka-init 2>/dev/null)" = exited ]; do sleep 2; done   # topic créé
 
 step "2/4 Données et modèle"
 [ -f data/transactions.csv ] || $PY -m src.generator.generate_dataset --n 250000 --days 30 --test-days 7 --test-fraud-rate 0.003 --seed 42

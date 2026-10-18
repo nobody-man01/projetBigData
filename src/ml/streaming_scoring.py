@@ -9,6 +9,7 @@ Chaque micro-lot (toutes les 5 s) est traité dans `score_batch` :
   2. on calcule les features de fréquence avec la MÊME fonction qu'à l'entraînement (add_velocity_features) ;
   3. on joint les profils de comptes (couche batch), on applique le modèle, on écrit dans MongoDB (upsert).
 """
+import os
 from datetime import datetime, timezone
 
 from pymongo import MongoClient, ReplaceOne
@@ -31,7 +32,8 @@ EXPLAIN_COLS = ["amount_to_balance_ratio", "sender_emptied", "is_night", "amount
 
 def main():
     spark = get_spark("momo-fraud-scoring", conf={"spark.jars.packages": SPARK_KAFKA_PACKAGE,
-                                                  "spark.sql.shuffle.partitions": "4"})
+                                                  "spark.sql.shuffle.partitions": "4",
+                                                  "spark.driver.memory": os.getenv("SPARK_DRIVER_MEMORY", "2g")})
     model = PipelineModel.load(str(MODEL_PATH))
     # Profils de comptes calculés en batch par train_model : table statique jointe à chaque micro-lot
     profiles = spark.read.parquet(str(PROFILES_PATH)).cache()

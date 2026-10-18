@@ -7,7 +7,7 @@ import streamlit as st
 
 from src.dashboard.data_access import get_pipeline_stats, ping
 from src.dashboard.ui.charts import style
-from src.dashboard.ui.theme import COLORS, kpi_card, page_header, section_header, status_banner
+from src.dashboard.ui.theme import COLORS, fr_num, kpi_card, page_header, section_header, status_banner
 
 online = ping()
 page_header("Santé du pipeline", "Producer → Kafka → Spark Structured Streaming → MongoDB → dashboard", live=online)
@@ -27,16 +27,16 @@ def live_health():
     if s["throughput"] == 0:
         status_banner("Flux à l'arrêt : aucune transaction scorée dans la dernière minute.", "MEDIUM")
     else:
-        status_banner(f"Pipeline opérationnel : {s['throughput']:.1f} transactions scorées par seconde, "
-                      f"95 % en moins de {p95:.1f} s.", "LOW")
+        status_banner(f"Pipeline opérationnel : {fr_num(s['throughput'], 1)} transactions scorées par seconde, "
+                      f"95 % en moins de {fr_num(p95, 1)} s.", "LOW")
 
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        kpi_card("Débit", f"{s['throughput']:.1f} tx/s", "transactions scorées, dernière minute")
+        kpi_card("Débit", f"{fr_num(s['throughput'], 1)} tx/s", "transactions scorées, dernière minute")
     with c2:
-        kpi_card("Latence médiane", f"{s['latency_p50'] / 1000:.1f} s", "envoi Kafka → score dans MongoDB")
+        kpi_card("Latence médiane", f"{fr_num(s['latency_p50'] / 1000, 1)} s", "envoi Kafka → score dans MongoDB")
     with c3:
-        kpi_card("Latence p95", f"{p95:.1f} s", "95 % des transactions plus rapides")
+        kpi_card("Latence p95", f"{fr_num(p95, 1)} s", "95 % des transactions plus rapides")
     with c4:
         kpi_card("Volumes", f"{s['n_scored']:,}".replace(",", " "),
                  f"scorées · {s['n_raw']:,} brutes stockées".replace(",", " "))
