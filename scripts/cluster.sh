@@ -25,6 +25,9 @@ workers() { curl -s localhost:8080/json/ | python3 -c "import json,sys; d=json.l
 
 case "${1:-}" in
   up)
+    if docker ps -a --format '{{.Names}}' | grep -q '^momo-kafka$'; then
+      echo "Le mode simple est présent (mêmes noms et mêmes ports) : lancez d'abord  docker compose down"; exit 1
+    fi
     step "Démarrage du cluster"
     HOST_UID=$(id -u) HOST_GID=$(id -g) "${COMPOSE[@]}" up -d --build
     until [ "$(docker inspect -f '{{.State.Status}}' momo-kafka-init 2>/dev/null)" = exited ]; do sleep 3; done
@@ -71,7 +74,7 @@ case "${1:-}" in
     topic; workers
     ;;
   down)
-    "${COMPOSE[@]}" down
+    "${COMPOSE[@]}" down   # supprime les conteneurs, garde les données (volumes)
     ;;
   *)
     sed -n '2,10p' "$0"; exit 1
