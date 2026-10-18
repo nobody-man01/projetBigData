@@ -19,6 +19,7 @@ Sorties (dossier models/) :
 """
 import argparse
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -129,7 +130,7 @@ def main():
     p.add_argument("--compare", action="store_true", help="compare les 3 algorithmes sur la fin de la période d'entraînement")
     a = p.parse_args()
 
-    spark = get_spark("momo-fraud-train", conf={"spark.driver.memory": "6g"})
+    spark = get_spark("momo-fraud-train", conf={"spark.driver.memory": os.getenv("SPARK_DRIVER_MEMORY", "6g")})
 
     raw = (spark.read.csv(a.data, header=True, schema=TX_SCHEMA)
            .withColumn("ts_epoch", F.to_timestamp("timestamp").cast("long")))

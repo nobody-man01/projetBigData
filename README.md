@@ -30,6 +30,17 @@ bash scripts/demo.sh          # Docker, modèle si absent, scoring, consumer, pr
 ```
 Dashboard : http://localhost:8501 · mongo-express : http://localhost:8081 · journaux : `logs/`.
 
+## Mode cluster (Kafka 3 brokers + Spark 1 master / 2 workers)
+```bash
+docker compose down                 # le mode simple et le mode cluster utilisent les mêmes ports
+bash scripts/cluster.sh up          # construit l'image Spark au premier lancement (quelques minutes)
+bash scripts/cluster.sh train       # entraînement sur le cluster (suivi : http://localhost:8080)
+bash scripts/cluster.sh demo        # scoring sur le cluster, flux et dashboard sur la machine
+bash scripts/cluster.sh panne       # arrêt d'un broker pendant le flux : aucune transaction perdue
+bash scripts/cluster.sh down
+```
+Détails et mesures : `notebooks/05_cluster.ipynb`.
+
 ## Démarrage complet (ordre des commandes, un terminal chacune)
 ```bash
 pip install -r requirements-spark.txt && cp .env.example .env   # inclut Spark
