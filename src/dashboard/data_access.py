@@ -1,10 +1,11 @@
 """Accès MongoDB pour le dashboard. Les pages Streamlit appellent UNIQUEMENT ces fonctions (jamais pymongo directement)."""
 import json
+from functools import lru_cache
 
 import pandas as pd
 from pymongo import MongoClient
 
-from config.settings import COL_RAW, COL_SCORED, METRICS_PATH, MONGO_DB, MONGO_URI
+from config.settings import COL_RAW, COL_SCORED, METRICS_PATH, MONGO_DB, MONGO_URI, PROFILES_PATH
 
 
 def _col():
@@ -137,3 +138,86 @@ def load_model_metrics() -> dict:
     if not METRICS_PATH.exists():
         return {}
     return json.loads(METRICS_PATH.read_text())
+
+
+# --- Page « Investigation d'un compte » et curseur de seuil ---
+
+RISK_ORDER = {"LOW": 0, "MEDIUM": 1, "HIGH": 2}
+
+
+def get_account_transactions(account_id: str, limit: int = 2000) -> pd.DataFrame:
+    """Transactions scorées où le compte est émetteur OU destinataire, de la plus ancienne à la plus récente."""
+    query = {"$or": [{"sender_id": account_id}, {"receiver_id": account_id}]}
+    cur = _col().find(query, {"_id": 0}).sort("timestamp", -1).limit(limit)
+    df = pd.DataFrame(list(cur))
+    return df.iloc[::-1].reset_index(drop=True) if not df.empty else df
+
+
+@lru_cache(maxsize=2)
+def _profiles(mtime: float) -> pd.DataFrame:
+    """Table des profils (couche batch), relue seulement si le fichier change (nouvel entraînement)."""
+    return pd.read_parquet(PROFILES_PATH).set_index("p_sender_id")
+
+
+def get_account_profile(account_id: str) -> dict:
+    """Habitudes du compte calculées en batch par train_model (models/account_profiles), ou {} si inconnu.
+
+    Clés : n_tx, avg_amount, max_amount, devices, receivers, cities (listes).
+    """
+    if not PROFILES_PATH.exists():
+        return {}
+    files = list(PROFILES_PATH.glob("*.parquet"))
+    mtime = max((f.stat().st_mtime for f in files), default=0.0)
+    table = _profiles(mtime)
+    if account_id not in table.index:
+        return {}
+    p = table.loc[account_id]
+    return {"n_tx": int(p["p_n_tx"]), "avg_amount": float(p["p_avg_amount"]), "max_amount": float(p["p_max_amount"]),
+            "devices": list(p["p_devices"]), "receivers": list(p["p_receivers"]), "cities": list(p["p_cities"])}
+
+
+def account_counterparts(df: pd.DataFrame, account_id: str) -> pd.DataFrame:
+    """Comptes en relation avec `account_id` dans `df` (sans accès à MongoDB, testable).
+
+    Colonnes : counterpart, direction (Envoyé / Reçu / Les deux), n, amount, max_score, worst_level, first_ts.
+    """
+    if df.empty:
+        return pd.DataFrame(columns=["counterpart", "direction", "n", "amount", "max_score", "worst_level", "first_ts"])
+    sent = df["sender_id"] == account_id
+    links = df.assign(counterpart=df["receiver_id"].where(sent, df["sender_id"]),
+                      direction=sent.map({True: "Envoyé", False: "Reçu"}),
+                      risk_rank=df["risk_level"].map(RISK_ORDER).fillna(0))
+    out = links.groupby("counterpart").agg(
+        n=("transaction_id", "size"), amount=("amount", "sum"), max_score=("fraud_score", "max"),
+        risk_rank=("risk_rank", "max"), first_ts=("timestamp", "min"),
+        directions=("direction", lambda d: "Les deux" if d.nunique() > 1 else d.iloc[0]),
+    ).reset_index()
+    out["worst_level"] = out["risk_rank"].map({v: k for k, v in RISK_ORDER.items()})
+    out = out.rename(columns={"directions": "direction"}).drop(columns="risk_rank")
+    return out.sort_values(["max_score", "amount"], ascending=False).reset_index(drop=True)
+
+
+def threshold_options(metrics: dict, min_threshold: float = 0.05) -> list:
+    """Seuils dont on connaît les chiffres EXACTS sur la période de test, du plus bas au plus haut.
+
+    Chaque point de la courbe précision-rappel enregistrée par train_model est exact pour la règle
+    « alerte si score >= seuil » ; on y ajoute les deux seuils de la configuration (0,50 et 0,80).
+    Chaque option : threshold, caught, missed, false_alerts, precision, recall.
+    """
+    n_fraud = metrics["n_test_fraud"]
+    options = {}
+    for key in ("at_high", "at_medium"):  # prioritaires si deux seuils s'affichent pareil (0,80 et 0,8 ...)
+        m = metrics.get(key)
+        if m:
+            options[round(m["threshold"], 2)] = {"threshold": m["threshold"], "caught": m["tp"], "missed": m["fn"],
+                                                 "false_alerts": m["fp"], "precision": m["precision"],
+                                                 "recall": m["recall"]}
+    for p in metrics.get("pr_curve", []):
+        key = round(p["threshold"], 2)
+        if p["threshold"] < min_threshold or key in options or p["precision"] <= 0:
+            continue
+        caught = round(p["recall"] * n_fraud)
+        alerts = round(caught / p["precision"])
+        options[key] = {"threshold": p["threshold"], "caught": caught, "missed": n_fraud - caught,
+                        "false_alerts": alerts - caught, "precision": p["precision"], "recall": p["recall"]}
+    return [options[k] for k in sorted(options)]

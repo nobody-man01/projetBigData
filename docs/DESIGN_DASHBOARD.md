@@ -26,6 +26,9 @@ Polices : Inter (texte) + JetBrains Mono (chiffres, identifiants), via Google Fo
 5. **Performance du modèle** : matrice de confusion, courbe précision-rappel, importance des features, seuil réglable avec impact immédiat sur nombre d'alertes et fraudes manquées (curseur = intérêt métier fort).
 6. **Architecture / Santé du pipeline** : débit msg/s, latence de bout en bout, retard Kafka, état de chaque composant. Montre la maîtrise Big Data.
 
+## Mode clair
+Interrupteur « Mode clair » dans la barre latérale (ou `?theme=clair` dans l'adresse) : mêmes rôles de couleur, teintes assombries pour le fond blanc (`PALETTES` dans `ui/theme.py`). Les pages n'ont rien à faire : `COLORS` renvoie toujours la teinte du mode actif. Conséquences : tableaux via `data_table` (pas `st.dataframe`) et graphiques via `st.plotly_chart(..., theme=None)`.
+
 ## Techniques pour dépasser le Streamlit par défaut
 - Un module `ui/theme.py` unique : CSS injecté via `st.markdown(..., unsafe_allow_html=True)`, masquer le menu/pied de page par défaut, cartes avec bordures fines et ombres douces, grille cohérente (espacement multiple de 8 px).
 - Composants maison réutilisables : `kpi_card`, `risk_badge`, `score_gauge`, `alert_card`, `section_header`.

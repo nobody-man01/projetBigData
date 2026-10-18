@@ -15,6 +15,11 @@ if str(ROOT) not in sys.path:
 from src.dashboard.ui.theme import apply_theme  # noqa: E402
 
 st.set_page_config(page_title="MoMo Fraud Ops – Groupe 7", page_icon="🛡️", layout="wide")
+
+# Mode clair ou sombre : choisi par l'interrupteur de la barre latérale, ou par l'adresse (?theme=clair),
+# ce qui permet aux liens entre pages (alerte -> investigation) de garder le mode choisi.
+if "light_mode" not in st.session_state:
+    st.session_state["light_mode"] = st.query_params.get("theme") == "clair"
 apply_theme()
 
 PAGES = Path(__file__).parent / "pages"
@@ -24,6 +29,8 @@ nav = st.navigation({
                 url_path="vue-ensemble", default=True),
         st.Page(PAGES / "2_Transactions_suspectes.py", title="Alertes", icon=":material/notifications_active:",
                 url_path="alertes"),
+        st.Page(PAGES / "5_Investigation_compte.py", title="Investigation d'un compte",
+                icon=":material/person_search:", url_path="investigation"),
     ],
     "Système": [
         st.Page(PAGES / "3_Performance_modele.py", title="Performance du modèle", icon=":material/insights:",
@@ -33,5 +40,6 @@ nav = st.navigation({
     ],
 })
 with st.sidebar:
+    st.toggle("Mode clair", key="light_mode", help="Fond clair, plus lisible au vidéoprojecteur")
     st.caption("Détection de fraude Mobile Money en temps réel · Kafka → Spark → MongoDB")
 nav.run()
