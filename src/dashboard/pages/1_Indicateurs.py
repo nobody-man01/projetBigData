@@ -12,7 +12,7 @@ import streamlit as st
 
 from src.dashboard.data_access import get_kpis, get_timeseries, ping
 from src.dashboard.ui.charts import style
-from src.dashboard.ui.theme import COLORS, format_xaf, kpi_card, page_header, section_header, status_banner
+from src.dashboard.ui.theme import COLORS, format_xaf, fr_pct, kpi_card, page_header, section_header, status_banner
 
 online = ping()
 page_header("Vue d'ensemble", "Surveillance en temps réel des transactions Mobile Money", live=online)
@@ -42,7 +42,7 @@ def overview():
         kpi_card("Alertes critiques", f"{k['n_high']:,}".replace(",", " "),
                  f"+ {k['n_medium']} à surveiller", COLORS["HIGH"])
     with c3:
-        kpi_card("Taux d'alerte", f"{k['fraud_rate']:.1%}", "part des transactions critiques")
+        kpi_card("Taux d'alerte", fr_pct(k["fraud_rate"], 1), "part des transactions critiques")
     with c4:
         kpi_card("Montant à risque", format_xaf(k["amount_at_risk"]), "somme des alertes critiques",
                  COLORS["accent"])

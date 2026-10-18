@@ -138,11 +138,21 @@ def alert_card(tx: dict, reasons: list) -> None:
         f'<div class="amount">{format_xaf(tx.get("amount", 0))}</div></div>'
         f'<div class="row" style="margin-top:6px"><span class="path">{escape(str(tx.get("sender_id", "")))} → '
         f'{escape(str(tx.get("receiver_id", "")))}</span>'
-        f'<span class="mono" style="color:{color}">score {score:.2f}</span></div>'
+        f'<span class="mono" style="color:{color}">score {fr_num(score, 2)}</span></div>'
         f'<div class="gauge"><div style="width:{score * 100:.0f}%;background:{color}"></div></div>'
         f'<div class="reasons">{reasons_html}</div></div>',
         unsafe_allow_html=True,
     )
+
+
+def fr_num(x, decimals: int = 0) -> str:
+    """Nombre au format français : virgule décimale, espace fine pour les milliers (0,80 ; 1 250)."""
+    return f"{float(x):,.{decimals}f}".replace(",", "\u202f").replace(".", ",")
+
+
+def fr_pct(ratio, decimals: int = 0) -> str:
+    """Pourcentage au format français à partir d'une proportion : 0.452 -> « 45 % »."""
+    return f"{fr_num(float(ratio) * 100, decimals)}\u202f%"
 
 
 def format_xaf(amount) -> str:
