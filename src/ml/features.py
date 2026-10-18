@@ -2,7 +2,7 @@
 
 Une seule fonction `add_features` garantit qu'il n'y a pas de décalage train/serve.
 """
-from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as F
 from pyspark.sql.types import (DoubleType, IntegerType, StringType, StructField,
                                StructType)
@@ -37,6 +37,33 @@ NUMERIC_COLS = [
 # Features issues des profils de comptes (retirées par train_model --sans-profils, pour mesurer leur apport)
 PROFILE_COLS = ["has_history", "log_n_tx_hist", "amount_vs_avg", "amount_vs_max",
                 "device_is_new", "receiver_is_new", "city_is_new"]
+# Features de fréquence : activité récente du compte (fenêtres glissantes, passé uniquement)
+VELOCITY_COLS = ["sender_n_10min", "log_sender_amount_10min", "sender_n_1h", "pair_n_10min"]
+NUMERIC_COLS = NUMERIC_COLS + VELOCITY_COLS
+VELOCITY_HISTORY_S = 3600   # le scoring temps réel garde 1 h d'historique (la plus longue fenêtre)
+
+
+def add_velocity_features(df: DataFrame) -> DataFrame:
+    """Compte l'activité récente de l'expéditeur, en ne regardant que le passé (transaction comprise).
+
+    Utilisée telle quelle à l'entraînement (sur tout le jeu) et en temps réel (sur la dernière heure
+    gardée en mémoire + le nouveau micro-lot) : même définition, donc pas de décalage train/serve.
+      - sender_n_10min / log_sender_amount_10min : rafales (VELOCITY) ;
+      - sender_n_1h : fractionnement étalé sous un seuil (STRUCTURING) ;
+      - pair_n_10min : même expéditeur -> même destinataire répété (AGENT_SPLIT).
+    """
+    if "ts_epoch" not in df.columns:
+        df = df.withColumn("ts_epoch", F.to_timestamp("timestamp").cast("long"))
+    by_sender = Window.partitionBy("sender_id").orderBy("ts_epoch")
+    by_pair = Window.partitionBy("sender_id", "receiver_id").orderBy("ts_epoch")
+    return (
+        df
+        .withColumn("sender_n_10min", F.count("*").over(by_sender.rangeBetween(-600, 0)).cast("double"))
+        .withColumn("log_sender_amount_10min",
+                    F.log1p(F.sum("amount").over(by_sender.rangeBetween(-600, 0))))
+        .withColumn("sender_n_1h", F.count("*").over(by_sender.rangeBetween(-3600, 0)).cast("double"))
+        .withColumn("pair_n_10min", F.count("*").over(by_pair.rangeBetween(-600, 0)).cast("double"))
+    )
 
 
 def build_profiles(history: DataFrame) -> DataFrame:

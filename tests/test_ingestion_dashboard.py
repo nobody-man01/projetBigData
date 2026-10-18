@@ -46,3 +46,4 @@ def test_explain_donne_au_plus_trois_raisons():
     assert len(reasons) == 3
     assert reasons[0] == "Nouvel appareil pour ce compte"
     assert explain({}) == []
+    assert explain({"pair_n_10min": 6.0})[0] == "6 opérations vers le même destinataire en 10 min"
