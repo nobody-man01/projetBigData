@@ -29,3 +29,7 @@ local/
 
 # Journaux de la démo
 logs/
+
+# Livrables (rapport, présentation, figures) : remis dans le zip, pas sur le dépôt public
+livrables/*
+!livrables/.gitkeep
