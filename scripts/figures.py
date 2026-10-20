@@ -20,7 +20,8 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 from matplotlib.patches import FancyArrowPatch, Rectangle  # noqa: E402
-from matplotlib.ticker import PercentFormatter  # noqa: E402
+from matplotlib.text import Text  # noqa: E402
+from matplotlib.ticker import FuncFormatter, PercentFormatter, ScalarFormatter  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -42,6 +43,7 @@ FEATURE_LABELS = {
     "sender_n_10min": "Opérations sur 10 min", "log_sender_amount_10min": "Montant envoyé sur 10 min",
     "sender_n_1h": "Opérations sur 1 h", "pair_n_10min": "Même destinataire sur 10 min",
 }
+FEATURE_LABELS = {k: v.replace("'", "\u2019") for k, v in FEATURE_LABELS.items()}  # apostrophe typographique
 # Durées mesurées le 18/10 (commande complète train_model, même machine) : voir docs/DECISIONS.md
 DUREES = pd.DataFrame([
     {"jeu": "Nos données\n(200 000 tx)", "mode": "Local (1 JVM, 6 Go)", "s": 258},
@@ -59,7 +61,33 @@ plt.rcParams.update({
 })
 
 
+class FrFormatter(ScalarFormatter):
+    """Graduations au format français : virgule décimale, espace pour les milliers (0,2 ; 15 000)."""
+
+    def __call__(self, x, pos=None):
+        s = super().__call__(x, pos).replace(".", ",")
+        digits = s.lstrip("−-")
+        if digits.isdigit() and len(digits) > 3:
+            s = s[: len(s) - len(digits)] + f"{int(digits):,}".replace(",", "\u202f")
+        return s
+
+
+def french(fig) -> None:
+    """Format français sur toute la figure : graduations, pourcentages et apostrophes typographiques."""
+    for ax in fig.axes:
+        for axis in (ax.xaxis, ax.yaxis):
+            f = axis.get_major_formatter()
+            if type(f) is ScalarFormatter:
+                axis.set_major_formatter(FrFormatter())
+            elif isinstance(f, PercentFormatter):
+                axis.set_major_formatter(FuncFormatter(lambda v, _, m=f.xmax: f"{v / m * 100:.0f}\u202f%"))
+    for t in fig.findobj(Text):
+        if "'" in t.get_text():
+            t.set_text(t.get_text().replace("'", "\u2019"))
+
+
 def save(fig, name: str) -> None:
+    french(fig)
     fig.savefig(OUT / f"{name}.png", facecolor="white")
     plt.close(fig)
     print(f"  {name}.png")
@@ -299,6 +327,7 @@ def latency(stats: dict) -> None:
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
+    previous = json.loads((OUT / "stats.json").read_text()) if (OUT / "stats.json").exists() else {}
     df = pd.read_csv(DATASET_PATH)
     test = pd.read_csv(DATA_DIR / "transactions_test.csv")
     m = json.loads(METRICS_PATH.read_text())
@@ -314,6 +343,10 @@ def main():
     model_figures(m, stats)
     durees()
     latency(stats)
+    if "latency_n" not in stats and "latency_n" in previous:
+        # MongoDB éteint ou vidé : on garde les latences mesurées lors de la dernière démonstration
+        stats.update({k: v for k, v in previous.items() if k.startswith("latency_")})
+        print("  latences reprises de la mesure précédente (stats.json)")
     (OUT / "stats.json").write_text(json.dumps(stats, indent=2, ensure_ascii=False, default=float))
     print(f"Statistiques : {OUT / 'stats.json'}")
 

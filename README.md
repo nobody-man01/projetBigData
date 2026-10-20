@@ -1,4 +1,4 @@
-# 🛡️ Détection de fraude Mobile Money – Groupe 7
+# Détection de fraude Mobile Money – Groupe 7
 
 Pipeline Big Data temps réel : **Générateur → Kafka → MongoDB → Spark MLlib → Streamlit**.
 
@@ -45,11 +45,12 @@ Détails et mesures : `notebooks/05_cluster.ipynb`. PaySim (6,36 millions de tra
 ```bash
 pip install -r requirements-spark.txt && cp .env.example .env   # inclut Spark
 docker compose up -d                                   # Kafka + MongoDB + mongo-express
-python -m src.generator.generate_dataset --n 200000    # crée data/transactions.csv (voir docs/DONNEES.md pour PaySim)
-python -m src.ml.train_model --compare                 # compare 3 algorithmes, sauvegarde modèle + métriques
+# septembre (entraînement, 2 % de fraudes) + semaine de test séparée à 0,3 % de fraudes (voir docs/DONNEES.md)
+python -m src.generator.generate_dataset --n 250000 --days 30 --test-days 7 --test-fraud-rate 0.003 --seed 42
+python -m src.ml.train_model --compare --test-data data/transactions_test.csv   # compare 3 algorithmes, sauvegarde modèle + métriques
 python -m src.ml.streaming_scoring                     # terminal 1 : scoring temps réel
 python -m src.ingestion.mongo_consumer                 # terminal 2 : stockage brut
-python -m src.ingestion.producer --rate 20             # terminal 3 : flux de transactions
+python -m src.ingestion.producer --rate 20 --data data/transactions_test.csv   # terminal 3 : rejoue la semaine de test
 streamlit run src/dashboard/app.py                     # terminal 4 : dashboard
 ```
 Prérequis : Python 3.10+ et Docker. Pour la partie ML seulement : Spark 3.5 (Java 11/17) ou Spark 4.x (Java 17+).

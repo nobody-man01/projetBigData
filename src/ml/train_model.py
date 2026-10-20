@@ -98,14 +98,20 @@ def threshold_metrics(y: np.ndarray, score: np.ndarray, threshold: float) -> dic
     }
 
 
-def pr_curve(y: np.ndarray, score: np.ndarray, n_points: int = 200) -> list:
-    """Points (seuil, précision, rappel) de la courbe précision-rappel, pour les figures du rapport."""
-    order = np.argsort(-score)
+def pr_curve(y: np.ndarray, score: np.ndarray, n_extra: int = 50) -> list:
+    """Points (seuil, précision, rappel) de la courbe précision-rappel, pour les figures et le dashboard.
+
+    Un point à chaque fraude retrouvée (la courbe ne change de forme qu'à ces endroits), plus quelques points
+    répartis sur les transactions normales. Chaque point est exact pour la règle « alerte si score >= seuil » :
+    en cas d'égalité de scores, il est placé après la dernière transaction de même score.
+    """
+    order = np.argsort(-score, kind="stable")
     y_sorted, s_sorted = y[order], score[order]
     tp = np.cumsum(y_sorted)
     precision = tp / np.arange(1, len(y) + 1)
     recall = tp / max(y.sum(), 1)
-    idx = np.unique(np.linspace(0, len(y) - 1, n_points).astype(int))
+    idx = np.concatenate([np.flatnonzero(y_sorted == 1), np.linspace(0, len(y) - 1, n_extra).astype(int)])
+    idx = np.unique(np.searchsorted(-s_sorted, -s_sorted[idx], side="right") - 1)
     return [{"threshold": float(s_sorted[i]), "precision": float(precision[i]), "recall": float(recall[i])}
             for i in idx]
 
