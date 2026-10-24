@@ -48,7 +48,8 @@ def live_health():
         fig = go.Figure(go.Scatter(x=series["scored_at"], y=series["median"] / 1000, mode="lines+markers",
                                    name="Latence médiane (s)", line=dict(color=COLORS["accent"], width=2)))
         fig.update_yaxes(title="secondes", rangemode="tozero")
-        st.plotly_chart(style(fig, 300), use_container_width=True)
+        st.plotly_chart(style(fig, 300), use_container_width=True, theme=None,
+                    config={"displayModeBar": False})
 
 
 live_health()

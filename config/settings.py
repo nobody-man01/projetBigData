@@ -48,6 +48,8 @@ MODEL_PATH = ROOT / "models" / "fraud_pipeline"
 PROFILES_PATH = ROOT / "models" / "account_profiles"   # profils de comptes (couche batch)
 METRICS_PATH = ROOT / "models" / "metrics.json"        # métriques du dernier entraînement
 CHECKPOINT_DIR = ROOT / "checkpoints" / "scoring"
+# Intervalle des micro-lots du scoring temps réel (fixe une bonne part de la latence)
+TRIGGER_INTERVAL = os.getenv("TRIGGER_INTERVAL", "5 seconds")
 
 # --- Seuils de risque (appliqués sur la probabilité de fraude) ---
 THRESHOLD_HIGH = 0.80

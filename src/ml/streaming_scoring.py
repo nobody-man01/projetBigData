@@ -20,7 +20,7 @@ from pyspark.sql.types import StringType, StructField, StructType
 
 from config.settings import (CHECKPOINT_DIR, COL_SCORED, KAFKA_BOOTSTRAP, KAFKA_TOPIC_RAW,
                              MODEL_PATH, MONGO_DB, MONGO_URI, PROFILES_PATH, SPARK_KAFKA_PACKAGE,
-                             THRESHOLD_HIGH, THRESHOLD_MEDIUM)
+                             THRESHOLD_HIGH, THRESHOLD_MEDIUM, TRIGGER_INTERVAL)
 from src.ml.spark import get_spark
 from src.ml.features import (TX_SCHEMA, VELOCITY_COLS, VELOCITY_HISTORY_S, add_features,
                              add_velocity_features)
@@ -99,7 +99,7 @@ def main():
 
     (parsed.writeStream.foreachBatch(score_batch)
      .option("checkpointLocation", str(CHECKPOINT_DIR))
-     .trigger(processingTime="5 seconds").start().awaitTermination())
+     .trigger(processingTime=TRIGGER_INTERVAL).start().awaitTermination())
 
 
 if __name__ == "__main__":

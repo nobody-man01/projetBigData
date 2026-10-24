@@ -58,9 +58,11 @@ def overview():
         fig.add_trace(go.Scatter(x=ts["bucket"], y=ts["n_high"], name="Alertes critiques", yaxis="y2",
                                  mode="lines+markers", line=dict(color=COLORS["HIGH"], width=2.5)))
         fig.update_layout(yaxis=dict(title="transactions"),
-                          yaxis2=dict(title="alertes", overlaying="y", side="right", showgrid=False,
+                          yaxis2=dict(title="alertes", overlaying="y", side="right", showgrid=False, tickmode="auto",
+                                      tickformat="d",
                                       color=COLORS["HIGH"], rangemode="tozero"))
-        st.plotly_chart(style(fig, 340), use_container_width=True)
+        st.plotly_chart(style(fig, 340), use_container_width=True, theme=None,
+                    config={"displayModeBar": False})
 
 
 overview()

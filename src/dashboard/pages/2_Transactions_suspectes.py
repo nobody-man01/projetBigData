@@ -4,7 +4,7 @@ Utilise UNIQUEMENT src.dashboard.data_access :
   - filtres latéraux : niveau (MEDIUM+/HIGH), ville, type de transaction ;
   - boîte de réception des alertes (cartes triées par date, avec les raisons principales) ;
   - répartition des alertes HIGH par ville et par type ;
-  - top 10 des comptes à risque.
+  - top 10 des comptes à risque ; chaque numéro de compte ouvre la page « Investigation d'un compte ».
 """
 import plotly.express as px
 import streamlit as st
@@ -12,7 +12,7 @@ import streamlit as st
 from src.common.schema import CITIES, TX_TYPES
 from src.dashboard.data_access import explain, get_suspicious, get_top_risky_accounts, ping
 from src.dashboard.ui.charts import style
-from src.dashboard.ui.theme import COLORS, alert_card, format_xaf, page_header, section_header
+from src.dashboard.ui.theme import COLORS, alert_card, data_table, page_header, section_header
 
 online = ping()
 page_header("Alertes", "Transactions suspectes à investiguer, les plus récentes d'abord", live=online)
@@ -53,7 +53,8 @@ def live_alerts():
             fig = px.bar(by_city, x="alertes", y="city", orientation="h",
                          color_discrete_sequence=[COLORS["HIGH"]])
             st.plotly_chart(style(fig, 260).update_layout(showlegend=False, yaxis_title=None,
-                                                          xaxis_title=None), use_container_width=True)
+                                                          xaxis_title=None), use_container_width=True, theme=None,
+                    config={"displayModeBar": False})
 
             by_type = high.groupby("tx_type").size().sort_values().reset_index(name="alertes")
             section_header("Par type d'opération",
@@ -61,21 +62,14 @@ def live_alerts():
             fig = px.bar(by_type, x="alertes", y="tx_type", orientation="h",
                          color_discrete_sequence=[COLORS["accent"]])
             st.plotly_chart(style(fig, 200).update_layout(showlegend=False, yaxis_title=None,
-                                                          xaxis_title=None), use_container_width=True)
+                                                          xaxis_title=None), use_container_width=True, theme=None,
+                    config={"displayModeBar": False})
 
     section_header("Toutes les alertes", "Score de fraude, montant et parcours de chaque transaction")
-    table = df[["timestamp", "risk_level", "fraud_score", "amount", "tx_type", "sender_id",
-                "receiver_id", "city", "channel"]].copy()
-    table["timestamp"] = table["timestamp"].str[:19].str.replace("T", " ")
-    st.dataframe(
-        table, hide_index=True, use_container_width=True, height=320,
-        column_config={
-            "timestamp": "Date", "risk_level": "Niveau", "tx_type": "Type", "city": "Ville",
-            "channel": "Canal", "sender_id": "Expéditeur", "receiver_id": "Destinataire",
-            "fraud_score": st.column_config.ProgressColumn("Score", min_value=0.0, max_value=1.0, format="%.2f"),
-            "amount": st.column_config.NumberColumn("Montant (XAF)", format="%d"),
-        },
-    )
+    data_table(df, [("timestamp", "Date", "date"), ("risk_level", "Niveau", "risk"), ("fraud_score", "Score", "score"),
+                    ("amount", "Montant", "xaf"), ("tx_type", "Type", "text"), ("sender_id", "Expéditeur", "account"),
+                    ("receiver_id", "Destinataire", "account"), ("city", "Ville", "text"), ("channel", "Canal", "text")],
+               max_height=360)
 
 
 live_alerts()
@@ -85,7 +79,5 @@ top = get_top_risky_accounts(10)
 if top.empty:
     st.info("Aucun compte avec une alerte critique pour l'instant.")
 else:
-    top["amount_high"] = top["amount_high"].map(format_xaf)
-    st.dataframe(top.rename(columns={"sender_id": "Compte", "n_high": "Alertes critiques",
-                                     "amount_high": "Montant en jeu"}),
-                 hide_index=True, use_container_width=True)
+    data_table(top, [("sender_id", "Compte (cliquer pour investiguer)", "account"),
+                     ("n_high", "Alertes critiques", "int"), ("amount_high", "Montant en jeu", "xaf")])
