@@ -116,6 +116,11 @@ def _css(c: dict, light: bool) -> str:
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
 html, body, [class*="css"], .stMarkdown, .stText {{ font-family: 'Inter', sans-serif; }}
 #MainMenu, footer, header [data-testid="stToolbar"] {{ visibility: hidden; }}
+/* Le bouton qui rouvre la barre latérale est rangé dans la barre d'outils masquée : on le garde visible */
+[data-testid="stExpandSidebarButton"] {{ visibility: visible; }}
+[data-testid="stExpandSidebarButton"], [data-testid="stExpandSidebarButton"] span,
+[data-testid="stExpandSidebarButton"] svg {{ color: {c['muted']} !important; }}
+[data-testid="stExpandSidebarButton"]:hover span {{ color: {c['accent']} !important; }}
 .block-container {{ padding-top: 1.5rem; padding-bottom: 2rem; max-width: 1400px; }}
 h1, h2, h3 {{ letter-spacing: -0.01em; }}
 {_native_overrides(c) if light else ""}
