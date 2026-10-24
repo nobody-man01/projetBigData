@@ -6,7 +6,9 @@
 #   3. scoring Spark, consumer MongoDB, producer (période de test, jamais vue à l'entraînement)
 #   4. dashboard sur http://localhost:8501
 #
+# Prérequis : l'environnement Python du projet activé (pip install -r requirements-spark.txt), Docker lancé.
 # Variables utiles : RATE=50 bash scripts/demo.sh   (transactions par seconde, 20 par défaut)
+#                    KEEP_DATA=1 bash scripts/demo.sh   (garde les transactions déjà dans MongoDB)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 RATE="${RATE:-20}"
@@ -14,8 +16,19 @@ PY="${PYTHON:-python}"
 LOGS=logs
 mkdir -p "$LOGS"
 
+# Vérification avant de démarrer quoi que ce soit : le Python utilisé a-t-il toutes les bibliothèques ?
+if ! $PY -c "import pyspark, streamlit, kafka, pymongo, pandas, plotly" 2>/dev/null; then
+  echo "Python utilisé : $(command -v "$PY" || echo "$PY introuvable")"
+  echo "Il manque des bibliothèques (pyspark, streamlit, kafka-python, pymongo, pandas ou plotly)."
+  echo "Activez l'environnement Python du projet (pip install -r requirements-spark.txt), ou PYTHON=/chemin/python bash scripts/demo.sh"
+  exit 1
+fi
+
 step() { printf '\n\033[1;33m▶ %s\033[0m\n' "$1"; }
 
+# Sans contrôle des tâches, bash lance les programmes en arrière-plan en ignorant Ctrl+C (SIGINT) : ils ne
+# s'arrêteraient pas. Avec set -m, chacun a son propre groupe et reçoit le SIGINT envoyé par cleanup.
+set -m
 PIDS=()
 cleanup() {
   step "Arrêt de la démo"
@@ -42,6 +55,15 @@ if [ -f data/transactions_test.csv ]; then REPLAY=(--data data/transactions_test
 echo "Rejeu de la période de test : ${REPLAY[*]}"
 
 step "3/4 Scoring Spark, consumer et producer (journaux dans $LOGS/)"
+# Kafka ne garde pas ses messages d'un lancement à l'autre (pas de volume) : les positions mémorisées par Spark
+# lors d'une démo précédente ne valent plus, on les efface. Les collections MongoDB sont vidées pour que le tableau
+# de bord parte de zéro (KEEP_DATA=1 pour les garder) ; le producer rejoue la semaine de test depuis le début.
+rm -rf checkpoints/scoring
+until docker exec momo-mongo mongosh --quiet --eval 'db.runCommand({ping: 1})' >/dev/null 2>&1; do sleep 1; done
+if [ "${KEEP_DATA:-0}" != 1 ]; then
+  docker exec momo-mongo mongosh momo_fraud --quiet --eval 'db.transactions.drop(); db.scored_transactions.drop()' >/dev/null
+  echo "MongoDB vidé : le tableau de bord part de zéro."
+fi
 $PY -u -m src.ml.streaming_scoring > "$LOGS/scoring.log" 2>&1 & PIDS+=($!)
 $PY -u -m src.ingestion.mongo_consumer > "$LOGS/consumer.log" 2>&1 & PIDS+=($!)
 echo "Attente du démarrage de Spark (premier lancement : téléchargement du connecteur Kafka)..."
